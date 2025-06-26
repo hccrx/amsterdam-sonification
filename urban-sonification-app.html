@@ -1,0 +1,5271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Urban Form Sonification</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet">
+  <style>
+    /* layout styles */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      background-color: #f5f5f5;
+    }
+    #sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320px;
+  height: 100%;
+  background-color: #333;
+  color: white;
+  transition: transform 0.3s ease;
+  overflow: visible;
+  z-index: 10;  
+  display: flex;
+  flex-direction: column;
+}
+    #sidebar.collapsed {
+      transform: translateX(-320px);
+    }
+    #sidebar-content {
+      display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+#scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  margin-top: 10px;
+}
+
+    #toggle-sidebar {
+      position: absolute;
+      top: 50%;
+      right: -30px;
+      width: 30px;
+      height: 50px;
+      background-color: #333;
+      color: white;
+      border: none;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateY(-50%);
+      z-index: 20;
+    }
+    #toggle-sidebar .arrow {
+      border: solid white;
+      border-width: 0 3px 3px 0;
+      display: inline-block;
+      padding: 3px;
+      transition: transform 0.3s ease;
+    }
+    #sidebar.collapsed #toggle-sidebar .arrow {
+      transform: rotate(-45deg);
+    }
+    #sidebar:not(.collapsed) #toggle-sidebar .arrow {
+      transform: rotate(135deg);
+    }
+    #logo {
+  display: flex;
+  align-items: center;
+  padding: 25px 20px 15px 20px; 
+  flex-shrink: 0;
+  background-color: #333;
+}
+    #logo img {
+      width: 50px;
+      height: 50px;
+      margin-right: 10px;
+    }
+ #logo h1 {
+  margin: 0 0 0 10px;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+    h2 {
+      font-size: 1rem;
+      text-transform: uppercase;
+      border-bottom: 1px solid #555;
+      padding-bottom: 10px;
+      margin-top: 30px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+.collapsible-header {
+  margin-bottom: 15px; 
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  margin: 15px 0px 5px;  
+  font-size: 1rem;
+  font-weight: normal;
+}
+
+#layer-controls-header, #settings-header {
+  margin: 0;
+  padding: 11px 20px;
+  position: relative;
+  border-bottom: none; 
+  font-size: 1.1rem;
+  font-weight: 350;
+}
+
+#layer-controls-header {
+  margin-top: 5px; 
+}
+
+#settings-header {
+  margin-top: 20px; 
+}
+
+
+#layer-controls-header:after, #settings-header:after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 13px;
+  right: 19px;
+  height: 1.1px; 
+  background-color: #c5c5c5;
+  transform: scaleY(1.1); 
+}
+#settings-content .layer-control {
+  margin-left: 20px;  
+}
+.collapsible-header {
+  margin: 0;
+  padding: 10px 20px;
+  font-size: 1rem;
+}
+
+#metrics-header, #classified-header {
+  padding-left: 22px;
+}
+#metrics-header {
+  margin-top: 12px; 
+  margin-bottom: 3px; 
+}
+.arrow-icon {
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  display: inline-block;
+  padding: 3px;
+  transform: rotate(-45deg); 
+  transition: transform 0.3s ease;
+}
+
+
+.expanded .arrow-icon {
+  transform: rotate(45deg);
+}
+.collapsible-header .arrow-icon {
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  display: inline-block;
+  padding: 3px;
+  transform: rotate(-45deg);   
+  transition: transform 0.3s ease;
+  margin-right: 10px;
+}
+.collapsible-header.expanded .arrow-icon {
+  transform: rotate(45deg);  
+}
+
+.custom-radio {
+  display: flex;
+  align-items: center;
+  margin: 10px 0 10px 0px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1.4; 
+}
+.custom-radio input[type="radio"] {
+  display: none;
+}
+.radio-mark {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ccc; 
+  border-radius: 50%;
+  margin-right: 8px;
+  position: relative;
+  flex-shrink: 0;
+}
+.custom-radio input[type="radio"]:checked + .radio-mark::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 9px;
+  height: 9px;
+  background-color: #8351e6;  
+  border-radius: 50%;
+}
+
+.custom-checkbox {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  margin: 0;          
+  font-size: 0.85rem;
+  width: auto;
+}
+.custom-checkbox input[type="checkbox"] {
+  display: none;
+}
+.checkbox-mark {
+  width: 13px;
+  height: 13px;
+  border: 2px solid #ccc;  
+  margin-right: 8px;
+  position: relative;
+  box-sizing: border-box;
+}
+.custom-checkbox input[type="checkbox"]:checked + .checkbox-mark::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background-color: #8351e6;
+}
+
+.audio-toggle-row, .visual-toggle-row {
+  padding: 5px 0;
+  cursor: pointer;
+  padding-right: 12px; 
+}
+.audio-toggle-row.expanded .arrow-icon,
+.visual-toggle-row.expanded .arrow-icon {
+  transform: rotate(45deg);
+}
+
+    .section-content {
+      overflow: hidden;
+      max-height: 1000px;
+      transition: max-height 0.3s ease;
+    }
+    .section-content.collapsed {
+      max-height: 0;
+    }
+    .layer-control {
+      margin: 15px 0;
+      display: flex;
+      align-items: center;
+    }
+    .layer-control input[type="radio"] {
+      margin-right: 10px;
+    }
+    .layer-control label {
+      cursor: pointer;
+    }
+    .toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 24px;   
+  height: 12px;  
+  margin-right: 8px;
+}
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+  content: "";
+  height: 8px;   
+  width: 8px;   
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+    input:checked + .slider {
+      background-color: #8351e6;
+    }
+    input:checked + .slider:before {
+      transform: translateX(11px);
+    }
+    .radio-option {
+      margin: 15px 0;
+      display: flex;
+      align-items: center;
+    }
+    .radio-circle {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      display: inline-block;
+      margin-right: 10px;
+      position: relative;
+      cursor: pointer;
+    }
+    .radio-circle.active:after {
+      content: '';
+      width: 12px;
+      height: 12px;
+      background-color: #8351e6;
+      border-radius: 50%;
+      position: absolute;
+      top: 4px;
+      left: 4px;
+    }
+    .metric-options {
+      margin-left: 5px;
+      margin-bottom: 15px;
+      padding-left: 20px;
+    }
+    #legend-container {
+      position: absolute;
+      bottom: 20px;
+      right: 11px;
+      z-index: 5;
+    }
+    #legend {
+      background-color: #fff;
+  border: none;          
+  border-radius: 4px;
+  padding: 8px;         
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease,
+              max-height 0.3s ease, opacity 0.3s ease;
+    }
+    #legend:hover {
+      background-color: #f8f8f8;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    #legend.collapsed {
+      max-height: 0;
+      padding: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+    #legend-toggle {
+      position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 34px;
+  height: 34px;
+  background-color: #fff;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    #legend-toggle:hover {
+      background-color: #f8f8f8;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3);
+    }
+    .legend-item {
+      display: flex;
+  align-items: center;
+  margin: 5px 0;
+  font-size: 12px;
+    }
+    .legend-color {
+      width: 15px;
+  height: 15px;
+  margin-right: 5px;
+  border-radius: 2px;
+    }
+    
+    .legend-highlight {
+      font-weight: bold;
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+    }
+    .sound-indicator {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 4px;
+      z-index: 5;
+      display: none;
+    }
+    .sound-indicator.active {
+      display: block;
+    }
+    .mapboxgl-ctrl-logo {
+      display: none !important;
+    }
+
+h2, h3.collapsible-header {
+  color: #fff; 
+  font-weight: 600; 
+  font-size: 1.15rem;
+  margin-bottom: 10px;
+}
+
+h4,
+.section-content label.toggle-switch + label { 
+  color: #fff;
+  font-weight: 400;
+  font-size: 1rem;
+}
+
+
+.custom-radio,
+label[for="volume-slider"] {
+  color: #ccc;
+  font-size: 0.95rem;
+  font-weight: 450;
+}
+    /* Tooltip Styles */
+.map-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 9;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  box-sizing: border-box;
+  transform: translate(-50%, -105%);
+  overflow: hidden;
+}
+    .map-tooltip::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%) translateY(100%);
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 8px solid #fff;
+    }
+    .map-tooltip-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+  
+    .mapboxgl-ctrl.basemap-toggle-ctrl {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 5px !important;
+    }
+    .basemap-button {
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    }
+    .basemap-button img {
+      width: 20px;
+      height: 20px;
+    }
+    .basemap-popup {
+      width: 200px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      padding: 8px;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      z-index: 9999;
+    }
+    .basemap-popup.hidden {
+      display: none;
+    }
+    .basemap-popup h4 {
+      margin: 0 0 6px 0;
+      font-size: 13px;
+    }
+    .basemap-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .basemap-toggle-row label {
+      font-size: 13px;
+      color: #333;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .basemap-toggle-row label input[type="checkbox"] {
+      margin-right: 4px;
+    }
+    .basemap-popup-content input[type="range"] {
+      width: 100px;
+      height: 4px;
+      margin-left: 6px;
+      background: linear-gradient(#777 );
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .basemap-popup-content input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #777;
+      cursor: pointer;
+      box-shadow: 0 0 2px rgba(0,0,0,0.5);
+    }
+    .basemap-popup-content input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #777;
+      cursor: pointer;
+      box-shadow: 0 0 2px rgba(0,0,0,0.5);
+    }
+    .opacity-tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 10000;
+      display: none;
+    }
+
+    
+    .expandable-toggle {
+      margin-bottom: 10px;
+    }
+    #audio-arrow,
+#visual-arrow {
+  border: solid #ccc;
+  border-width: 0 1.3px 1.3px 0; 
+  padding: 2.3px;    
+  transition: transform 0.3s ease;
+}
+
+
+#audio-arrow.expanded, #visual-arrow.expanded {
+  transform: rotate(45deg); 
+}
+    .toggle-row {
+      display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
+}
+
+
+.toggle-row span:last-child {
+  margin-left: auto; 
+}
+
+.metrics-container {
+  margin-left: 20px;
+  margin-top: 5px;
+}
+
+.metric-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 8px; 
+}
+
+#city-blocks-mode .expandable-toggle {
+  margin-left: 25px !important; 
+}
+
+
+#city-blocks-mode {
+  margin-left: 25px !important;
+  padding-left: 0 !important;
+}
+
+#audio-metrics,
+#visual-metrics {
+  margin-top: 8px;
+}
+
+label[for="audio-land-use"],
+label[for="visual-land-use"] {
+  margin-right: 16px; 
+}
+
+
+#city-blocks-mode .toggle-row {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+.metric-row .custom-checkbox {
+  width: 45%;
+  margin-right: 0;
+}
+
+.toggle-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.expand-arrow {
+  margin-left: auto;
+  font-size: 10px;
+  transition: transform 0.3s;
+}
+
+.expand-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.metrics-options {
+  transition: max-height 0.3s ease;
+  overflow: hidden;
+}
+    
+    #panel-footer {
+  position: absolute;
+  bottom: 15px;
+  left: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 15px;
+}
+
+    .panel-icon {
+      cursor: pointer;
+      position: relative;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      background: none;
+      border: none;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    .panel-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: none;
+    }
+    .panel-tooltip {
+      display: none;
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      color: #000;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      padding: 4px 6px;
+      font-size: 13px;
+      line-height: 1.2;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      pointer-events: none;
+      z-index: 9999;
+    }
+    .panel-tooltip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid #fff;
+    }
+    .panel-icon:hover .panel-tooltip {
+      display: block;
+    }
+ 
+    #about-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(255, 255, 255, 0.9);
+      z-index: 999999;
+      display: none;
+      overflow-y: auto;
+    }
+    #about-content {
+      position: relative;
+      max-width: 800px;
+      margin: 60px auto;
+      color: #000;
+      padding: 20px;
+      background: transparent;
+    }
+    .about-close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+      color: #000;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      background: none;
+      border: none;
+    }
+    .about-close-btn:hover {
+      color: #666;
+    }
+
+  /* Visual Guide Panel */
+.visual-guide-panel {
+  display: none; 
+  background: #fff;
+  color: #000;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  width: 300px;
+  font-size: 14px;
+  font-family: "Roboto", sans-serif;
+
+  
+  position: absolute;   
+  bottom: 140px;        
+  right: 20px;       
+  z-index: 9999;    
+}
+
+.visual-guide-title {
+  color: #000;
+}
+
+.visual-guide-panel {
+  display: none;
+  position: absolute; 
+  right: -8px;
+  bottom: 25px;
+  background: #fff;
+  color: #000;
+  width: 300px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  padding: 16px;
+  font-family: "Roboto", sans-serif;
+  font-size: 14px;
+  z-index: 9999;
+}
+
+.visual-guide-title {
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0 0 16px 0;
+  border-bottom: 1px solid #999;
+  padding-bottom: 8px;
+}
+
+
+.metric-block {
+  margin-bottom: 20px; 
+}
+.metric-block.street-network {
+  margin-bottom: 8px;  
+}
+
+
+.metric-block.street-network .metric-icons {
+  display: flex;
+  gap: 2px;          
+  margin: 0;           
+  padding: 0;
+}
+
+
+.metric-block.street-network .metric-subrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2px;             
+  margin: 0;           
+  padding: 0;
+}
+
+
+.metric-block.street-network .more-button,
+.metric-block.street-network .metric-label {
+  margin: 0;
+  padding: 0;
+}
+
+.metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.metric-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-right: 10px;
+}
+.metric-icons {
+  display: flex;
+  align-items: center; 
+  justify-content: flex-end; 
+  height: 24px; 
+}
+
+.metric-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 5px; 
+}
+
+
+.metric-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block; 
+}
+
+#tri-icon-container {
+  margin-left: -1px; 
+  margin-right: -4px; 
+
+}
+
+
+.metric-subrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.metric-label {
+  font-size: 12px;
+  font-weight: 400;
+  color: #595959; 
+  gap: 3px;
+}
+
+
+.more-button {
+  background: none;
+  border: none;
+  color: #8351e6; 
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  text-decoration: none;
+}
+.more-button:hover {
+  text-decoration: underline;
+}
+.arrow {
+  font-weight: 700;
+}
+
+ 
+  #audio-land-use-details-panel {
+    padding: 15px;
+    width: 300px;
+  }
+  
+  #audio-land-use-details-panel .visual-guide-title {
+    text-transform: uppercase;
+    font-weight: bold;
+    font-size: 16px;
+    text-align: left;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 10px;
+  }
+  
+  #audio-land-use-details-panel h3.section-title {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 10px;
+  }
+  
+  #audio-land-use-details-panel .less-button {
+    background: none;
+    border: none;
+    color: #8351e6;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    padding: 0;
+    text-decoration: none;
+    margin-top: 0;
+    margin-bottom: 15px;
+  }
+  
+  #audio-land-use-details-panel .less-button:hover {
+    text-decoration: underline;
+  }
+  
+  #audio-land-use-details-panel .landuse-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    column-gap: 10px;
+    row-gap: 15px;
+  }
+  
+  .instrument-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    margin-bottom: 5px;
+  }
+  
+  .instrument-tooltip {
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  
+  .instrument-icon {
+    width: 37px;
+    height: 37px;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  
+  .instrument-icon:hover {
+    transform: scale(1.1);
+  }
+  
+  .instrument-icon:hover + .instrument-tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  .landuse-label {
+    font-size: 10px;
+    color: #666;
+    text-align: center;
+    margin-top: 4px;
+    max-width: 80px;
+  }
+
+  .street-chord-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important; 
+}
+.street-chord-item:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  background: none !important;
+  border: none !important;
+  font-weight: normal !important;
+}
+
+.street-type-label {
+  margin-top: 3px;
+  margin-bottom: 0; 
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.street-type-image {
+  margin-top: 0; 
+  width: 60px;
+  height: 60px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.street-type-image:hover {
+  transform: scale(1.1);
+}
+
+.street-chord-row {
+  display: contents;
+  margin: 0;
+  padding: 0;
+}
+
+.street-chord-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 20px; 
+  width: 100%;
+  padding: 0 15px 0 15x;
+  margin: 0 auto; 
+  max-width: 320px; 
+}
+
+@font-face {
+  font-family: 'Bravura';
+  src: url('bravura.woff2') format('woff2'),
+       url('bravura.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+#audio-building-age-details-panel {
+  width: 300px;
+  max-width: 300px;
+  padding: 16px;
+  margin: 0 auto;
+  display: none;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin: 10px 0 5px 0;
+}
+
+
+.less-button {
+  color: #8351e6;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 20px;
+  display: inline-block;
+}
+
+
+.tempo-notation {
+  display: flex;
+  align-items: center;
+  margin: 15px 0 12px 0; 
+}
+
+.tempo-notation img {
+  height: 24px;
+  margin-right: 8px;
+}
+
+
+.tempo-notation .equals {
+  font-family: "Times New Roman", Times, serif !important;
+  font-style: italic !important;
+  margin: -2px 8px; 
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.tempo-notation .bpm-label {
+  font-family: "Times New Roman", Times, serif !important;
+  font-style: italic !important;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.tempo-container {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.tempo-values {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  margin: 0 0 5px 0;
+}
+
+.tempo-bpm {
+  cursor: pointer;
+  transition: transform 0.2s;
+  text-decoration: none;
+  display: table-cell;
+  text-align: center;
+  font-family: "Times New Roman", Times, serif !important;
+  font-style: italic !important; 
+  font-weight: bold !important;
+  font-size: 18px;
+  margin-right: 30px !important;
+  margin-left: -3px !important;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  position: relative;
+  padding: 0;
+  width: 20%;
+}
+
+.age-ranges {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.tempo-bpm:hover {
+  transform: scale(1.1);
+  text-decoration: none;
+}
+
+
+.age-range {
+  display: table-cell;
+  text-align: center;
+  font-size: 10px !important;
+  color: #666;
+  padding: 0 5.8px; 
+  white-space: nowrap; 
+}
+
+.hidden-data {
+  display: none;
+}
+
+
+.tempo-tooltip {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: "Roboto", sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.tempo-bpm:hover .tempo-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+#audio-street-network-details-panel {
+  width: 300px;
+  max-width: 300px;
+  padding: 16px;
+  margin: 0 auto;
+}
+
+.section-title {
+  margin-bottom: 15px;
+}
+
+.play-chord-btn {
+  padding: 4px 12px;
+  background-color: #8351e6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.play-chord-btn:hover {
+  background-color: #6d43c0;
+}
+
+.building-age-grid,
+.building-height-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.age-tempo-item,
+.height-loudness-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.age-label,
+.height-label {
+  font-size: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+}
+
+.tempo-desc,
+.loudness-desc {
+  font-size: 11px;
+  color: #666;
+  margin-top: 5px;
+  text-align: center;
+}
+
+.play-tempo-btn,
+.play-height-btn {
+  padding: 4px 12px;
+  background-color: #8351e6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.play-tempo-btn:hover,
+.play-height-btn:hover {
+  background-color: #6d43c0;
+}
+
+.less-button {
+  background: none;
+  border: none;
+  color: #8351e6;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  text-decoration: none;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.less-button:hover {
+  text-decoration: underline;
+}
+
+#identify-clusters-container {
+  display: inline-block;
+  margin-left: 25px;
+  margin-bottom: 15px;
+}
+
+#identify-clusters-container .custom-checkbox {
+  color: #ccc;
+}
+
+.street-chord-item {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.street-chord-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.street-type-image {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+}
+
+#metrics-header {
+  font-weight: 300;
+  opacity: 0.9;
+  color: #fff;
+}
+  
+#classified-header {
+  font-weight: 400;
+  color: #fff;
+}
+#building-age-details-panel .metric-label {
+  margin-top: 12px;
+}
+
+#audio-building-age-details-panel {
+  background: white; 
+  border-radius: 6px; 
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2); 
+  padding: 16px;
+  width: 280px;
+}
+
+#audio-building-age-details-panel .section-title {
+  font-size: 16px;
+  margin: 10px 0 8px 0;
+}
+
+#audio-building-age-details-panel .less-button {
+  margin-bottom: 24px;
+}
+
+.age-range {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  width: 40px;
+}
+
+.tempo-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.tempo-values {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-left: 15px;
+}
+
+.height-dynamics-grid {
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+.dynamics-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 5px;
+}
+
+.dynamics-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 45px; 
+}
+
+.treble-clef {
+  height: 40px;
+  width: auto;
+  margin-bottom: 3px;
+}
+
+.dynamics-symbol {
+  height: 20px;
+  width: auto;
+  margin-bottom: 5px;
+}
+
+.treble-clef-small {
+  height: 37px;
+  width: auto;
+  margin-bottom: 2px;
+}
+
+.dynamics-symbol-small {
+  height: 14px;
+  width: auto;
+  margin-bottom: 3px;
+}
+
+.height-range {
+  font-size: 10px;
+  color: #666;
+}
+
+
+.clickable-dynamics {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  padding: 5px;
+}
+
+.clickable-dynamics:hover {
+  transform: scale(1.1);
+}
+
+
+.height-notation-note {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  font-size: 9.5px;
+  color: #666;
+  line-height: 1.3;
+}
+
+.height-notation-note img {
+  height: 27px !important; 
+  vertical-align: middle;
+  margin-bottom: 2px;
+  opacity: 0.7;
+}
+
+
+#audio-building-height-details-panel {
+  width: 300px; 
+  max-width: 300px;
+}
+
+#audio-guide-panel > .audio-metrics > .metric-block {
+  margin-bottom: 20px !important;
+}
+
+#audio-guide-panel > .audio-metrics > .metric-block:last-child {
+  margin-bottom: 5px !important;
+}
+
+#audio-guide-panel .audio-metrics > .metric-header {
+  align-items: center;
+  margin-bottom: 6px; 
+}
+
+#audio-guide-panel .metric-title {
+  font-size: 15px;
+  font-weight: 550;
+}
+
+#audio-guide-panel .audio-metrics > .metric-label {
+  display: flex;
+  align-items: center;
+  color: #777;
+}
+
+#audio-guide-panel {
+  padding: 14px 11px;
+}
+
+#audio-guide-panel .arrow {
+  margin-left: 2px;
+}
+#audio-land-use-details-panel .instrument-icon {
+  height: 32px;
+  width: 32px;
+  filter: brightness(0.8) contrast(1.2);
+}
+#audio-street-network-details-panel h4 {
+      color: #000 !important;
+      font-size: 12px !important;
+      font-weight: 500 !important;
+      margin: 0 0 5px 0 !important;
+      visibility: visible !important;
+      display: block !important;
+    }
+    
+    #audio-street-network-details-panel .street-type-label {
+      color: #999 !important;
+      font-size: 10px !important;
+      margin-top: 2px !important;
+      display: block !important;
+      visibility: visible !important;
+    }
+    
+    #audio-street-network-details-panel .street-chord-item {
+      cursor: pointer !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    
+    #audio-street-network-details-panel .street-chord-item:hover {
+      transform: scale(1.05) !important;
+    }
+
+.visual-guide-panel,
+#audio-guide-panel,
+#visual-guide-panel,
+#legend-container,
+#audio-building-age-details-panel,
+#audio-building-height-details-panel,
+#audio-land-use-details-panel,
+#audio-street-network-details-panel,
+#building-age-details-panel,
+#building-height-details-panel,
+#land-use-details-panel,
+#street-network-details-panel {
+  right: 11px !important; 
+}
+
+  </style>
+</head>
+<script>
+function showMoreDetails(metric) {
+  if (metric === 'street-network') {
+    toggleDetailView(metric, true);
+  } else if (metric === 'building-age') {
+    toggleDetailView(metric, true);
+  } else if (metric === 'building-height') {
+    toggleDetailView(metric, true);
+  } else if (metric === 'land-use') {
+    toggleDetailView(metric, true);
+  } else {
+    alert("No detailed view available for this metric yet.");
+  }
+  setTimeout(positionGuidePanels, 100);
+  
+  const visualIcon = document.getElementById('legend-visual-icon');
+  if (visualIcon) visualIcon.src = 'icon/guide_color.png';
+  
+  
+  wasVisualPanelOpen = true;
+  
+  
+  lastActiveMetricPanel = `${metric}-details-panel`;
+  
+  
+  positionGuidePanels();
+}
+  
+  // a general toggle function to handle all panel types
+  function toggleDetailView(metricType, showDetails) {
+  const mainPanel = document.getElementById('visual-guide-panel');
+  const detailsPanel = document.getElementById(`${metricType}-details-panel`);
+  
+  if (!detailsPanel && showDetails) {
+    createDetailsPanel(metricType);
+    setTimeout(positionGuidePanels, 50);
+    return;
+  }
+  
+  if (showDetails) {
+    mainPanel.style.display = 'none';
+    detailsPanel.style.display = 'block';
+  } else {
+    mainPanel.style.display = 'block';
+    detailsPanel.style.display = 'none';
+  }
+  
+  setTimeout(positionGuidePanels, 50);
+}
+  
+  function createDetailsPanel(metricType) {
+    const mainPanel = document.getElementById('visual-guide-panel');
+    const parentContainer = mainPanel.parentNode;
+    
+    const detailsPanel = document.createElement('div');
+    detailsPanel.id = `${metricType}-details-panel`;
+    detailsPanel.className = 'visual-guide-panel';
+    detailsPanel.style.display = 'block';
+    
+    // Generate panel content based on metric type
+    if (metricType === 'street-network') {
+      createStreetNetworkPanel(detailsPanel);
+    } else if (metricType === 'building-age') {
+      createBuildingAgePanel(detailsPanel);
+    } else if (metricType === 'building-height') {
+      createBuildingHeightPanel(detailsPanel);
+    } else if (metricType === 'land-use') {
+      createLandUsePanel(detailsPanel);
+    }
+    
+    // Insert the details panel after the main panel
+    parentContainer.insertBefore(detailsPanel, mainPanel.nextSibling);
+    
+    mainPanel.style.display = 'none';
+  }
+  
+  // add common CSS styles for all panels
+  function addCommonPanelStyles() {
+    if (document.getElementById('detail-panel-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'detail-panel-styles';
+    style.textContent = `
+      .visual-guide-panel {
+  height: auto !important; 
+  max-height: none !important;
+  overflow: visible;
+      }
+      .section-title {
+        font-size: 16px;
+        font-weight: 700;
+        margin: 10px 0 8px 0;
+      }
+      .back-button {
+        margin-bottom: 6px;
+      }
+      .less-button {
+        background: none;
+        border: none;
+        color: #8351e6;
+        cursor: pointer;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 0;
+        text-decoration: none;
+        margin-top: 1px;
+        margin-bottom: 20px;
+      }
+      .less-button:hover {
+        text-decoration: underline;
+      }
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 15px;
+      }
+      .metric-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      .metric-shape {
+        margin-bottom: 8px;
+        border: 1px solid #000;
+      }
+      .metric-label {
+        font-size: 10px;
+        color: #666;
+      }
+      .landuse-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        row-gap: 5px;
+      }
+      .height-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        row-gap: 15px;
+        align-items: flex-end;
+      }
+      .height-box {
+        border: 2px solid #000;
+        margin-bottom: 8px;
+      }
+      .age-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        row-gap: 15px;
+      }
+      .age-box {
+        background-color: #d3d3d3;
+        border: 2px solid #000;
+        margin-bottom: 8px;
+      }
+    `;
+    
+    document.head.appendChild(style);
+  }
+  
+  function toggleStreetNetworkDetailView(showDetails) {
+    toggleDetailView('street-network', showDetails);
+  }
+  
+  // Street Network panel 
+  function createStreetNetworkPanel(detailsPanel) {
+    detailsPanel.innerHTML = `
+      <h2 class="visual-guide-title">VISUAL GUIDE</h2>
+      <div class="street-network-details">
+        <h3 class="section-title">Street Pattern = Shape</h3>
+        <div class="back-button">
+          <button class="less-button" onclick="toggleDetailView('street-network', false)">
+            <span class="arrow">&larr;</span> Less
+          </button>
+        </div>
+        
+        <div class="network-types">
+          <div class="network-row">
+            <div class="network-type">
+              <h4>Grid</h4>
+              <div class="street-types-row">
+                <div class="street-type-container">
+                  <div id="type-1-2" class="street-shape"></div>
+                  <span class="type-label">Type 1-2</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="network-type">
+              <h4>Organic</h4>
+              <div class="street-types-row">
+                <div class="street-type-container">
+                  <div id="type-2-2" class="street-shape"></div>
+                  <span class="type-label">Type 2-2</span>
+                </div>
+                <div class="street-type-container">
+                  <div id="type-2-3" class="street-shape"></div>
+                  <span class="type-label">Type 2-3</span>
+                </div>
+                <div class="street-type-container" style="display:block; width:100%; height:0;"></div>
+                <div class="street-type-container">
+                  <div id="type-2-4" class="street-shape"></div>
+                  <span class="type-label">Type 2-4</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="network-row">
+            <div class="network-type">
+              <h4>Deformed</h4>
+              <div class="street-types-row">
+                <div class="street-type-container">
+                  <div id="type-3-1" class="street-shape"></div>
+                  <span class="type-label">Type 3-1</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="network-type">
+              <h4>Cul-de-sac</h4>
+              <div class="street-types-row">
+                <div class="street-type-container">
+                  <div id="type-4-1" class="street-shape"></div>
+                  <span class="type-label">Type 4-1</span>
+                </div>
+                <div class="street-type-container">
+                  <div id="type-4-2" class="street-shape"></div>
+                  <span class="type-label">Type 4-2</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+            <!-- Add this footnote -->
+      <div class="street-network-note" style="margin-top: 15px; font-size: 11px; color: #666; padding-top: 10px; border-top: 1px solid #eee;">
+        <p><span style="font-size:13px;">⋆</span> If Street Pattern is removed from the visual, shapes will display as circles without borders.</p>
+      </div>
+    </div>
+    `;
+    
+    // style for street network
+    const streetStyle = document.createElement('style');
+    streetStyle.textContent = `
+    #type-3-1.street-shape svg {
+  width: 36px !important;
+  height: 30px !important;
+  overflow: visible !important;
+}
+      #street-network-details-panel {
+        width: 300px;
+        max-width: 300px;
+        height: auto;
+        right: -8px;
+        bottom: 25px;
+        padding: 16px;
+      }
+      .section-title {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 10px 0 8px 0;
+      }
+      .back-button {
+        margin-bottom: 6px;
+      }
+      .less-button {
+        background: none;
+        border: none;
+        color: #8351e6;
+        cursor: pointer;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        margin-top: 0px;
+        margin-bottom: 15px;
+        gap: 2px;
+        padding: 0;
+        text-decoration: none;
+      }
+      .less-button:hover {
+        text-decoration: underline;
+      }
+      .network-types {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+      .network-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .network-type {
+        flex: 1;
+      }
+      .network-type h4 {
+        font-size: 12px;
+        margin: 0 0 10px 0;
+        color: #000;
+        font-weight: 500;
+        text-align: center;
+      }
+      .street-types-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;  
+        justify-content: center;
+      }
+      .network-type:nth-child(2) .street-types-row {
+        row-gap: 2px; 
+      }
+      .street-type-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 3px;  
+      }
+
+  .street-shape {
+    width: 41px;
+    height: 41px;
+    margin-bottom: 3px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: visible;     
+  }
+      .type-label {
+      margin-top: 3px;
+        font-size: 10px;
+        color: #666;
+      }
+            /* Style for the footnote */
+    .street-network-note {
+      margin-top: 15px;
+      font-size: 10px !important;
+      color: #666;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+      line-height: 1;
+    }
+    `;
+    
+    document.head.appendChild(streetStyle);
+    
+    setTimeout(function() {
+      drawAllStreetNetworkShapes();
+    }, 100);
+  }
+  
+  // building age panel 
+function createBuildingAgePanel(detailsPanel) {
+  detailsPanel.innerHTML = `
+    <h2 class="visual-guide-title">VISUAL GUIDE</h2>
+    <div class="building-age-details">
+      <h3 class="section-title">Building Age (yrs) = Color Value</h3>
+      <div class="back-button">
+        <button class="less-button" onclick="toggleDetailView('building-age', false)">
+          <span class="arrow">&larr;</span> Less
+        </button>
+      </div>
+      
+      <div class="age-grid" style="display: flex; flex-direction: row; justify-content: space-between; gap: 10px; margin-top: 20px;">
+        <!-- All circles in one row -->
+        <div class="metric-item">
+          <div class="age-circle" style="width: 43px; height: 43px; background-color: #E9E9E9; border-radius: 50%;"></div>
+          <span class="metric-label">0-25</span>
+        </div>
+        <div class="metric-item">
+          <div class="age-circle" style="width: 43px; height: 43px; background-color: #DBDBDB; border-radius: 50%;"></div>
+          <span class="metric-label">25-65</span>
+        </div>
+        <div class="metric-item">
+          <div class="age-circle" style="width: 43px; height: 43px; background-color: #CDCDCD; border-radius: 50%;"></div>
+          <span class="metric-label">65-135</span>
+        </div>
+        <div class="metric-item">
+          <div class="age-circle" style="width: 43px; height: 43px; background-color: #BEBEBE; border-radius: 50%;"></div>
+          <span class="metric-label">135-190</span>
+        </div>
+        <div class="metric-item">
+          <div class="age-circle" style="width: 43px; height: 43px; background-color: #B0B0B0; border-radius: 50%;"></div>
+          <span class="metric-label">190+</span>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  addCommonPanelStyles();
+}
+  
+// building height panel 
+function createBuildingHeightPanel(detailsPanel) {
+  detailsPanel.innerHTML = `
+    <h2 class="visual-guide-title">VISUAL GUIDE</h2>
+    <div class="building-height-details">
+      <h3 class="section-title">Building Height (m) = Size</h3>
+      <div class="back-button">
+        <button class="less-button" onclick="toggleDetailView('building-height', false)">
+          <span class="arrow">&larr;</span> Less
+        </button>
+      </div>
+     
+      <div class="height-grid" style="display: flex; flex-direction: row; justify-content: space-between; flex-wrap: nowrap; gap: 15px; align-items: center; margin-top: 20px;">
+        <!-- Updated sizes to match actual tooltip sizes -->
+        <div class="metric-item" style="display: flex; flex-direction: column; align-items: center;">
+          <div class="height-box" style="width: 17px; height: 17px; margin-bottom: 32px; margin-top: 32px; background-color: #B0B0B0; border-radius: 50%; border: none;"></div>
+          <span class="metric-label" style="font-size: 10px; text-align: center; max-width: 40px;">0-6</span>
+        </div>
+        <div class="metric-item" style="display: flex; flex-direction: column; align-items: center;">
+          <div class="height-box" style="width: 30px; height: 30px; margin-bottom: 26px; margin-top: 26px; background-color: #B0B0B0; border-radius: 50%; border: none;"></div>
+          <span class="metric-label" style="font-size: 10px; text-align: center; max-width: 40px;">6-15</span>
+        </div>
+        <div class="metric-item" style="display: flex; flex-direction: column; align-items: center;">
+          <div class="height-box" style="width: 43.5px; height: 43.5px; margin-bottom: 20px; margin-top: 20px; background-color: #B0B0B0; border-radius: 50%; border: none;"></div>
+          <span class="metric-label" style="font-size: 10px; text-align: center; max-width: 45px;">15-27</span>
+        </div>
+        <div class="metric-item" style="display: flex; flex-direction: column; align-items: center;">
+          <div class="height-box" style="width: 57px; height: 57px; margin-bottom: 14px; margin-top: 14px; background-color: #B0B0B0; border-radius: 50%; border: none;"></div>
+          <span class="metric-label" style="font-size: 10px; text-align: center; max-width: 45px;">27-50</span>
+        </div>
+        <div class="metric-item" style="display: flex; flex-direction: column; align-items: center;">
+          <div class="height-box" style="width: 70.5px; height: 70.5px; margin-bottom: 8px; margin-top: 8px; background-color: #B0B0B0; border-radius: 50%; border: none;"></div>
+          <span class="metric-label" style="font-size: 10px; text-align: center; max-width: 40px;">50+</span>
+        </div>
+      </div>
+    </div>
+  `;
+ 
+  addCommonPanelStyles();
+}
+  
+// land use panel 
+function createLandUsePanel(detailsPanel) {
+  detailsPanel.innerHTML = `
+    <h2 class="visual-guide-title">VISUAL GUIDE</h2>
+    <div class="land-use-details">
+      <h3 class="section-title">Land Use = Color Hue</h3>
+      <div class="back-button">
+        <button class="less-button" onclick="toggleDetailView('land-use', false)">
+          <span class="arrow">&larr;</span> Less
+        </button>
+      </div>
+      
+      <div class="landuse-grid">
+        <!-- Row 1 -->
+        <div class="metric-item">
+          <div id="lu-agriculture" class="landuse-shape"></div>
+          <span class="metric-label">Agriculture</span>
+        </div>
+        <div class="metric-item">
+          <div id="lu-business" class="landuse-shape"></div>
+          <span class="metric-label">Business & Industry</span>
+        </div>
+        <div class="metric-item">
+          <div id="lu-center" class="landuse-shape"></div>
+          <span class="metric-label">Center & Mixed-Use</span>
+        </div>
+        <div class="metric-item">
+          <div id="lu-culture" class="landuse-shape"></div>
+          <span class="metric-label">Culture, Recreation & Sports</span>
+        </div>
+        
+        <!-- Row 2 -->
+        <div class="metric-item">
+          <div id="lu-retail" class="landuse-shape"></div>
+          <span class="metric-label">Retail & Services</span>
+        </div>
+        <div class="metric-item">
+          <div id="lu-hospitality" class="landuse-shape"></div>
+          <span class="metric-label">Hospitality & Office</span>
+        </div>
+        <div class="metric-item">
+          <div id="lu-social" class="landuse-shape"></div>
+          <span class="metric-label">Social & Community</span>
+        </div>
+        <div class="metric-item">
+          <div id="lu-nature" class="landuse-shape"></div>
+          <span class="metric-label">Nature & Green Spaces</span>
+        </div>
+        
+        <!-- Row 3 -->
+        <div class="metric-item">
+          <div id="lu-residential" class="landuse-shape"></div>
+          <span class="metric-label">Residential</span>
+        </div>
+        <div class="metric-item">
+          <div id="lu-water" class="landuse-shape"></div>
+          <span class="metric-label">Water Bodies</span>
+        </div>
+        <div class="metric-item">
+          <div id="lu-others" class="landuse-shape"></div>
+          <span class="metric-label">No Data</span>
+        </div>
+      </div>
+      
+      <!-- Note at the bottom -->
+      <div class="landuse-note">
+        <p><span style="font-size:13px;">⋆</span> Each City block has maximum 3 different land use types. The color(s) of the visual symbol is divided proportionally</p>
+      </div>
+    </div>
+  `;
+  
+  const luStyle = document.createElement('style');
+  luStyle.textContent = `
+    .landuse-shape {
+      width: 43px !important;
+      height: 43px !important;
+      background-color: var(--your-fill-color); 
+      border-radius:50%;
+      border: none; 
+      margin-bottom: 5px;  
+    }
+    
+    .land-use-details .metric-label {
+      font-size: 10px; 
+      color: #666;
+      max-width: 60px; 
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis; 
+    }
+    
+    .landuse-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;          
+      row-gap: -2px;     
+    }
+    
+    /* the note at the bottom */
+    .landuse-note {
+      margin-top: 10px;
+      padding-top: 5px;
+      border-top: 1px solid #eee;
+      font-size: 9px;
+      color: #666;
+      line-height: 1.2;
+    }
+
+    .metric-item {z
+      margin-bottom: 2px;
+    }
+  `;
+  document.head.appendChild(luStyle);
+  
+  addCommonPanelStyles();
+  
+  setTimeout(function() {
+    drawLandUseRectangles();
+  }, 100);
+}
+
+function drawLandUseRectangles() {
+  const connector = window.mapSoundConnector;
+  if (!connector) {
+    console.warn("mapSoundConnector not defined yet. Retrying...");
+    setTimeout(drawLandUseRectangles, 300);
+    return;
+  }
+  
+  // Map of land use types to their IDs 
+  const landUseMap = {
+    'Agricultural': 'lu-agriculture',
+    'Business & Industry': 'lu-business',
+    'Center & Mixed-Use': 'lu-center',
+    'Culture, Recreation & Sports': 'lu-culture',
+    'Retail & Services': 'lu-retail',
+    'Hospitality & Office': 'lu-hospitality',
+    'Social & Community': 'lu-social',
+    'Nature & Green Spaces': 'lu-nature',
+    'Residential': 'lu-residential',
+    'Water Bodies': 'lu-water',
+    'Others': 'lu-others'
+  };
+  
+  // Draw each land use rectangle with its corresponding color
+  for (const [luType, elementId] of Object.entries(landUseMap)) {
+    const container = document.getElementById(elementId);
+    if (container) {
+      container.innerHTML = '';
+      const svgRect = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svgRect.setAttribute('width', '43');
+      svgRect.setAttribute('height', '43');
+      svgRect.setAttribute('viewBox', '0 0 100 100');
+      
+      // Create a rectangle
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+circle.setAttribute('cx', 50);           // center of the viewBox
+circle.setAttribute('cy', 50);
+circle.setAttribute('r',  45);           // radius = half of your 90×90 box
+circle.setAttribute('fill', connector.landUseBaseColors[luType] || '#B0B0B0');
+svgRect.appendChild(circle);
+
+      container.appendChild(svgRect);
+    }
+  }
+}
+  // draw all street network shapes in the detailed panel
+  function drawAllStreetNetworkShapes() {
+  const connector = window.mapSoundConnector;
+  if (!connector) {
+    console.warn("mapSoundConnector not defined yet. Retrying...");
+    setTimeout(drawAllStreetNetworkShapes, 300);
+    return;
+  }
+  
+  // Type 1-2 (Rectangle)
+  const type12Container = document.getElementById('type-1-2');
+  if (type12Container) {
+    type12Container.innerHTML = '';
+    const svgRect = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgRect.setAttribute('width', '43');
+    svgRect.setAttribute('height', '43');
+    svgRect.setAttribute('viewBox', '0 0 100 100');
+    connector.drawRectOutline(svgRect, 5, 90, 2.6);
+    type12Container.appendChild(svgRect);
+  }
+  
+  // Type 2-2 through 2-5 
+  const circleTypes = [
+    { id: 'type-2-2', dotPosition: 'top' },
+    { id: 'type-2-3', dotPosition: 'right' },
+    { id: 'type-2-4', dotPosition: 'bottom' },
+    { id: 'type-2-5', dotPosition: 'left' }
+  ];
+  
+  circleTypes.forEach(type => {
+    const container = document.getElementById(type.id);
+    if (container) {
+      container.innerHTML = '';
+      const svgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svgCircle.setAttribute('width', '43');
+      svgCircle.setAttribute('height', '43');
+      svgCircle.setAttribute('viewBox', '0 0 100 100');
+      connector.drawCircleOutline(svgCircle, 5, 90, type.dotPosition, 2.7);
+      container.appendChild(svgCircle);
+    }
+    
+  });
+  
+  // Type 3-1 
+  const type31Container = document.getElementById('type-3-1');
+  if (type31Container) {
+    type31Container.innerHTML = '';
+    const svgPara = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgPara.setAttribute('width', '43');
+    svgPara.setAttribute('height', '43');
+    svgPara.setAttribute('viewBox', '0 0 100 100');
+    connector.drawParaOutline(svgPara, 10, 120, 3.6);
+    type31Container.appendChild(svgPara);
+  }
+  
+  // Type 4-1 and 4-2 
+  const triangleTypes = [
+    { id: 'type-4-1', orientation: 'up' },
+    { id: 'type-4-2', orientation: 'down' }
+  ];
+  
+  triangleTypes.forEach(type => {
+    const container = document.getElementById(type.id);
+    if (container) {
+      container.innerHTML = '';
+      const svgTri = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svgTri.setAttribute('width', '43');
+      svgTri.setAttribute('height', '43');
+      svgTri.setAttribute('viewBox', '-8 -4 115 115');
+      connector.drawEquilateralOutline(svgTri, 5, 97, type.orientation, 2.9);
+      container.appendChild(svgTri);
+    }
+  });
+}
+  // Audio/Visual expandable sections
+document.addEventListener('DOMContentLoaded', () => {
+  // AUDIO
+  const audioRow = document.querySelector('.audio-toggle-row');
+  const audioMetrics = document.getElementById('audio-metrics');
+  if (audioRow && audioMetrics) {
+    audioRow.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.closest('label')) {
+    e.stopPropagation(); 
+    return; 
+  }
+     audioRow.classList.toggle('expanded');
+      audioMetrics.style.display = audioRow.classList.contains('expanded') ? 'block' : 'none';
+    });
+  }
+
+  // VISUAL
+  const visualRow = document.querySelector('.visual-toggle-row');
+  const visualMetrics = document.getElementById('visual-metrics');
+  if (visualRow && visualMetrics) {
+    visualRow.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.closest('label')) {
+    e.stopPropagation(); 
+    return; 
+  }
+     visualRow.classList.toggle('expanded');
+      visualMetrics.style.display = visualRow.classList.contains('expanded') ? 'block' : 'none';
+    });
+  }
+});
+// show more audio details
+function showMoreAudioDetails(metric) {
+  if (metric === 'street-network') {
+    toggleAudioDetailView(metric, true);
+  } else if (metric === 'building-age') {
+    toggleAudioDetailView(metric, true);
+  } else if (metric === 'building-height') {
+    toggleAudioDetailView(metric, true);
+  } else if (metric === 'land-use') {
+    toggleAudioDetailView(metric, true);
+  } else {
+    alert("No detailed view available for this metric yet.");
+  }
+  
+  lastActiveAudioMetricPanel = `audio-${metric}-details-panel`;
+  
+  positionGuidePanels();
+}
+
+// Toggle audio detail views
+function toggleAudioDetailView(metricType, showDetails) {
+  const mainPanel = document.getElementById('audio-guide-panel');
+  const detailsPanel = document.getElementById(`audio-${metricType}-details-panel`);
+  
+  if (!detailsPanel && showDetails) {
+    console.error(`Audio details panel for ${metricType} not found`);
+    return;
+  }
+  
+  if (showDetails) {
+    mainPanel.style.display = 'none';
+    detailsPanel.style.display = 'block';
+  } else {
+    mainPanel.style.display = 'block';
+    detailsPanel.style.display = 'none';
+  }
+  
+  setTimeout(positionGuidePanels, 50);
+}
+
+</script>
+
+<body>
+  <!-- ABOUT -->
+  <div id="about-overlay" class="hidden">
+    <div id="about-content">
+      <span id="about-close" class="about-close-btn">&times;</span>
+      <h2>About Urban Form Sonification</h2>
+      <p>Urban Form Sonification is an innovative project that transforms the visual
+         complexity of urban environments into an engaging multi-sensory experience.
+         Drawing from principles in urban planning, spatial analysis, and auditory design,
+         the project seeks to explore the intricate interplay between a city’s physical form
+         and its underlying social and economic dynamics.</p>
+      <h3>Project Overview</h3>
+      <p>The project classifies urban blocks based on four key criteria:</p>
+      <ul>
+        <li><strong>Building Age:</strong> Reflecting the historical evolution of the urban fabric.</li>
+        <li><strong>Building Height:</strong> Representing the vertical form and scale of the urban environment.</li>
+        <li><strong>Street Pattern Type:</strong> Capturing the connectivity and structural design of city streets.</li>
+        <li><strong>Land Use:</strong> Indicating the variety and intensity of functions within the city.</li>
+      </ul>
+      <h3>Sonification &amp; Visualization</h3>
+      <p>The sonification process maps these urban metrics to musical parameters, creating
+         an auditory landscape that mirrors the physical characteristics of the city:</p>
+      <ul>
+        <li><strong>Pitch:</strong> Varies according to building age.</li>
+        <li><strong>Tempo:</strong> Reflects building height.</li>
+        <li><strong>Instrumental Differentiation:</strong> Captures variations in street network types and land use.</li>
+      </ul>
+      <h3>User Interaction</h3>
+      <p>The interface provides several toggles for user control, including sound effects,
+         visual symbols, basemap options, and an Amsterdam boundary layer—allowing users to
+         explore how physical form and usage patterns shape city life.</p>
+    </div>
+  </div>
+
+<!-- Guide Panels Container -->
+<div id="guide-panels-container" style="
+  position: absolute; 
+  bottom: 80px;    /* roughly above the legend, adjust as needed */
+  right: 20px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 10px;       /* space between the two panels */
+  z-index: 999999;
+">
+
+<!-- AUDIO GUIDE PANEL -->
+<div id="audio-guide-panel" class="visual-guide-panel">
+  <h2 class="visual-guide-title">AUDIO GUIDE</h2>
+  <div class="audio-metrics">
+
+    <!-- BUILDING AGE -->
+    <div class="metric-block">
+      <div class="metric-header">
+        <span class="metric-title">Building Age</span>
+        <div class="metric-icons">
+          <img src="icon/tempo.png" alt="Tempo" class="metric-icon" style="width:28px; height:28px;">
+        </div>
+      </div>
+      <div class="metric-subrow">
+        <button class="more-button" id="audio-building-age-more">
+          More <span class="arrow">→</span>
+        </button>
+        <span class="metric-label">Tempo</span>
+      </div>
+    </div>
+
+    <!-- BUILDING HEIGHT -->
+<div class="metric-block">
+  <div class="metric-header">
+    <span class="metric-title">Building Height</span>
+    <div class="metric-icons">
+      <img src="icon/loudness.png" alt="Loudness" class="metric-icon" style="width:21px; height:21px; opacity:0.75;">
+      <img src="icon/octave.png" alt="Register" class="metric-icon" style="width:24px; height:24px; margin-left: 4px; opacity:0.70;">
+    </div>
+  </div>
+  <div class="metric-subrow">
+    <button class="more-button" id="audio-building-height-more">
+      More <span class="arrow">→</span>
+    </button>
+    <span class="metric-label">Dynamics & Register</span>
+  </div>
+</div>
+
+    <!-- LAND USE -->
+    <div class="metric-block">
+      <div class="metric-header">
+        <span class="metric-title">Land Use</span>
+        <div class="metric-icons">
+          <img src="icon/instruments.png" alt="Instruments" class="metric-icon" style="width:28px; height:28px;">
+        </div>
+      </div>
+      <div class="metric-subrow">
+        <button class="more-button" id="audio-land-use-more">
+          More <span class="arrow">→</span>
+        </button>
+        <span class="metric-label">Instruments</span>
+      </div>
+    </div>
+
+    <!-- STREET NETWORK -->
+    <div class="metric-block">
+      <div class="metric-header">
+        <span class="metric-title">Street Pattern</span>
+        <div class="metric-icons">
+          <img src="icon/chord.png" alt="Chord Design" class="metric-icon" style="width:28px; height:28px;">
+        </div>
+      </div>
+      <div class="metric-subrow">
+        <button class="more-button" id="audio-street-network-more">
+          More <span class="arrow">→</span>
+        </button>
+        <span class="metric-label">Chords</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- AUDIO DETAIL PANELS -->
+<div id="audio-building-age-details-panel" class="visual-guide-panel">
+  <h2 class="visual-guide-title">AUDIO GUIDE</h2>
+  
+  <h3 class="section-title">Building Age (yrs) = Tempo</h3>
+  <button class="less-button" onclick="toggleAudioDetailView('building-age', false)">
+    ← Less
+  </button>
+  
+  <!-- First row with quarter note and BPM label -->
+<div class="tempo-notation">
+  <img src="icon/quarter.png" alt="Quarter note">
+  <span class="equals">=</span>
+  <span class="bpm-label">BPM</span>
+</div>
+  
+  <!-- Second row with clickable BPM numbers -->
+  <div class="tempo-values">
+    <span class="tempo-bpm" data-tempo="0.214" data-name="Prestissimo">
+      280
+      <span class="tempo-tooltip">Prestissimo</span>
+    </span>
+    <span class="tempo-bpm" data-tempo="0.316" data-name="Presto">
+      190
+      <span class="tempo-tooltip">Presto</span>
+    </span>
+    <span class="tempo-bpm" data-tempo="0.5" data-name="Allegro">
+      120
+      <span class="tempo-tooltip">Allegro</span>
+    </span>
+    <span class="tempo-bpm" data-tempo="0.75" data-name="Andante">
+      80
+      <span class="tempo-tooltip">Andante</span>
+    </span>
+    <span class="tempo-bpm" data-tempo="1.2" data-name="Largo">
+      50
+      <span class="tempo-tooltip">Largo</span>
+    </span>
+  </div>
+  
+  <!-- Age ranges in smaller gray text -->
+  <div class="age-ranges">
+    <span class="age-range">0-25</span>
+    <span class="age-range">25-65</span>
+    <span class="age-range">65-135</span>
+    <span class="age-range">135-190</span>
+    <span class="age-range">190+</span>
+  </div>
+</div>
+
+<!-- Building Height Audio Guide Panel with test volume controls -->
+<div id="audio-building-height-details-panel" class="visual-guide-panel">
+  <h2 class="visual-guide-title">AUDIO GUIDE</h2>
+  
+  <h3 class="section-title">Building Height (m) - Dynamics & Register</h3>
+  <button class="less-button" onclick="toggleAudioDetailView('building-height', false)">
+    ← Less
+  </button>
+  
+  <div class="height-dynamics-grid">
+    <!-- Row with musical notation and dynamics symbols - now clickable -->
+    <div class="dynamics-row">
+      <div class="dynamics-item">
+        <div class="clickable-dynamics" data-height-class="0" title="Click to hear pp (very soft)">
+          <img src="icon/trebledown.png" class="treble-clef-small">
+          <img src="icon/pp.png" class="dynamics-symbol-small">
+        </div>
+        <div class="height-range">0-6</div>
+      </div>
+      
+      <div class="dynamics-item">
+        <div class="clickable-dynamics" data-height-class="1" title="Click to hear mp (moderately soft)">
+          <img src="icon/trebledown.png" class="treble-clef-small">
+          <img src="icon/mp.png" class="dynamics-symbol-small">
+        </div>
+        <div class="height-range">6-15</div>
+      </div>
+      
+      <div class="dynamics-item">
+        <div class="clickable-dynamics" data-height-class="2" title="Click to hear mp (moderately soft)">
+          <img src="icon/treble.png" class="treble-clef-small">
+          <img src="icon/mp.png" class="dynamics-symbol-small">
+        </div>
+        <div class="height-range">15-27</div>
+      </div>
+      
+      <div class="dynamics-item">
+        <div class="clickable-dynamics" data-height-class="3" title="Click to hear f (loud)">
+          <img src="icon/treble.png" class="treble-clef-small">
+          <img src="icon/f.png" class="dynamics-symbol-small">
+        </div>
+        <div class="height-range">27-50</div>
+      </div>
+      
+      <div class="dynamics-item">
+        <div class="clickable-dynamics" data-height-class="4" title="Click to hear ff (very loud)">
+          <img src="icon/trebleup.png" class="treble-clef-small">
+          <img src="icon/ff.png" class="dynamics-symbol-small">
+        </div>
+        <div class="height-range">50+</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Footnote similar to the street network panel - with larger images -->
+  <div class="height-notation-note" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; font-size: 9.5px; color: #666; line-height: 1.3;">
+    <p>* Register is shown by the treble clef positions: <img src="icon/treble.png" style="height: 18px; vertical-align: middle; margin-bottom: 2px;">  (normal—the mapping indicated in the chords audio guide), <img src="icon/trebledown.png" style="height: 18px; vertical-align: middle; margin-bottom: 2px;"> (8vb, one octave lower), and <img src="icon/trebleup.png" style="height: 18px; vertical-align: middle; margin-bottom: 2px;"> (8va, one octave higher). Dynamics symbols indicate relative volume.</p>
+  </div>
+</div>
+
+<div id="audio-land-use-details-panel" class="visual-guide-panel" style="display:none;">
+  <h2 class="visual-guide-title">AUDIO GUIDE</h2>
+  
+  <h3 class="section-title">Land Use</h3>
+  <button class="less-button" onclick="toggleAudioDetailView('land-use', false)">
+    ← Less
+  </button>
+  
+  <div class="landuse-grid">
+    <!-- Row 1 -->
+    <div class="instrument-container">
+      <img src="icon/hangdrum.png" class="instrument-icon" data-instrument="hangdrum" alt="Hangdrum">
+      <div class="instrument-tooltip">Hangdrum</div>
+      <div class="landuse-label">Agriculture</div>
+    </div>
+    
+    <div class="instrument-container">
+      <img src="icon/trumpet.png" class="instrument-icon" data-instrument="trumpet" alt="Trumpet">
+      <div class="instrument-tooltip">Trumpet</div>
+      <div class="landuse-label">Business & Industry</div>
+    </div>
+    
+    <div class="instrument-container">
+      <img src="icon/violin.png" class="instrument-icon" data-instrument="violin" alt="Violin">
+      <div class="instrument-tooltip">Violin</div>
+      <div class="landuse-label">Center & Mixed-Use</div>
+    </div>
+    
+    <!-- Row 2 -->
+    <div class="instrument-container">
+      <img src="icon/xylo.png" class="instrument-icon" data-instrument="xylo" alt="Xylophone">
+      <div class="instrument-tooltip">Xylophone</div>
+      <div class="landuse-label">Culture, Recreation & Sports</div>
+    </div>
+    
+    <div class="instrument-container">
+      <img src="icon/oboe.png" class="instrument-icon" data-instrument="oboe" alt="Oboe">
+      <div class="instrument-tooltip">Oboe</div>
+      <div class="landuse-label">Retail & Services</div>
+    </div>
+    
+    <div class="instrument-container">
+      <img src="icon/bass.png" class="instrument-icon" data-instrument="bass" alt="Bass">
+      <div class="instrument-tooltip">Bass</div>
+      <div class="landuse-label">Hospitality & Office</div>
+    </div>
+    
+    <!-- Row 3 -->
+    <div class="instrument-container">
+      <img src="icon/organ.png" class="instrument-icon" data-instrument="organ" alt="Organ">
+      <div class="instrument-tooltip">Organ</div>
+      <div class="landuse-label">Social & Community</div>
+    </div>
+    
+    <div class="instrument-container">
+      <img src="icon/flute.png" class="instrument-icon" data-instrument="flute" alt="Flute">
+      <div class="instrument-tooltip">Flute</div>
+      <div class="landuse-label">Nature & Green Spaces</div>
+    </div>
+    
+    <div class="instrument-container">
+      <img src="icon/piano.png" class="instrument-icon" data-instrument="piano" alt="Piano">
+      <div class="instrument-tooltip">Piano</div>
+      <div class="landuse-label">Residential</div>
+    </div>
+    
+    <!-- Row 4 -->
+    <div class="instrument-container">
+      <img src="icon/glocken.png" class="instrument-icon" data-instrument="glockens" alt="Glockenspiel">
+      <div class="instrument-tooltip">Glockenspiel</div>
+      <div class="landuse-label">Water Bodies</div>
+    </div>
+    
+    <div class="instrument-container">
+      <img src="icon/synth.png" class="instrument-icon" data-instrument="melodic" alt="Synthesizer">
+      <div class="instrument-tooltip">Synthesizer</div>
+      <div class="landuse-label">No Data</div>
+    </div>
+  </div>
+</div>
+
+<div id="audio-street-network-details-panel" class="visual-guide-panel" style="display:none;">
+    <h2 class="visual-guide-title">AUDIO GUIDE</h2>
+    <div class="street-network-details">
+      <h3 class="section-title">Street Pattern</h3>
+      <div class="back-button">
+        <button class="less-button" onclick="toggleAudioDetailView('street-network', false)">
+          <span class="arrow">&larr;</span> Less
+        </button>
+      </div>
+      
+      <div style="display: flex; flex-direction: column; margin-top: 15px;">
+        <!-- First row: Grid and Organic -->
+        <div style="display: flex; margin-bottom: 10px;">
+          <!-- Grid section -->
+          <div style="flex: 1; text-align: center;">
+            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">Grid</h4>
+            <div class="street-chord-item" data-street-type="t12" style="display: flex; flex-direction: column; align-items: center;">
+              <img src="street/t12.png" class="street-type-image" alt="Type 1-2" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 1-2</span>
+            </div>
+          </div>
+          
+          <!-- Organic section -->
+          <div style="flex: 1; text-align: center;">
+            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">Organic</h4>
+            <div class="street-chord-item" data-street-type="t22" style="display: flex; flex-direction: column; align-items: center;">
+              <img src="street/t22.png" class="street-type-image" alt="Type 2-2" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 2-2</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Second row: Deformed and Organic continued (2-3) -->
+        <div style="display: flex; margin-bottom: 10px;">
+          <!-- Deformed section -->
+          <div style="flex: 1; text-align: center;">
+            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">Deformed</h4>
+            <div class="street-chord-item" data-street-type="t31" style="display: flex; flex-direction: column; align-items: center;">
+              <img src="street/t31.png" class="street-type-image" alt="Type 3-1" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 3-1</span>
+            </div>
+          </div>
+          
+          <!-- Organic continued - Type 2-3 -->
+          <div style="flex: 1; text-align: center;">
+            <div class="street-chord-item" data-street-type="t23" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+              <img src="street/t23.png" class="street-type-image" alt="Type 2-3" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 2-3</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Third row: Cul-de-sac and Organic continued (2-4) -->
+        <div style="display: flex; margin-bottom: 10px;">
+          <!-- Cul-de-sac section -->
+          <div style="flex: 1; text-align: center;">
+            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">Cul-de-sac</h4>
+            <div class="street-chord-item" data-street-type="t41" style="display: flex; flex-direction: column; align-items: center;">
+              <img src="street/t41.png" class="street-type-image" alt="Type 4-1" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 4-1</span>
+            </div>
+          </div>
+          
+          <!-- Organic continued - Type 2-4 -->
+          <div style="flex: 1; text-align: center;">
+            <div class="street-chord-item" data-street-type="t24" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+              <img src="street/t24.png" class="street-type-image" alt="Type 2-4" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 2-4</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Fourth row: Cul-de-sac continued (4-2) and No Pattern -->
+        <div style="display: flex;">
+          <!-- Cul-de-sac continued - Type 4-2 -->
+          <div style="flex: 1; text-align: center;">
+            <div class="street-chord-item" data-street-type="t42" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+              <img src="street/t42.png" class="street-type-image" alt="Type 4-2" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 4-2</span>
+            </div>
+          </div>
+          
+          <!-- No Pattern section -->
+          <div style="flex: 1; text-align: center;">
+            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">No Pattern</h4>
+            <div class="street-chord-item" data-street-type="no" style="display: flex; flex-direction: column; align-items: center;">
+              <img src="street/No.png" class="street-type-image" alt="No Pattern" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;"></span> <!-- Empty label -->
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footnote -->
+      <div class="street-network-note" style="margin-top: 20px; font-size: 11px; color: #666; padding-top: 10px; border-top: 1px solid #eee; line-height: 1.2;">
+        <p><span style="font-size:13px;">⋆</span> All chords shown are written in the treble clef <img src="icon/treble.png" style="height: 18px; vertical-align: middle; margin-bottom: 2px;" alt="treble clef"> notation.</p>
+      </div>
+    </div>
+</div>
+
+<!-- VISUAL GUIDE PANEL -->
+<div id="visual-guide-panel" class="visual-guide-panel">
+  <h2 class="visual-guide-title">VISUAL GUIDE</h2>
+  <div class="visual-metrics">
+
+    <!-- BUILDING AGE -->
+    <div class="metric-block">
+      <div class="metric-header">
+        <span class="metric-title">Building Age</span>
+        <!-- 3 squares with gray fill and black stroke -->
+        <div class="metric-icons">
+          <div class="metric-icon" style="background: #E9E9E9; border-radius: 50%;"></div>
+          <div class="metric-icon" style="background: #CDCDCD; border-radius: 50%;"></div>
+          <div class="metric-icon" style="background: #B0B0B0; border-radius: 50%;"></div>
+        </div>
+      </div>
+      <div class="metric-subrow">
+        <button class="more-button" id="building-age-more">
+          More <span class="arrow">→</span>
+        </button>
+        <span class="metric-label">Value</span>
+      </div>
+    </div>
+
+    <!-- BUILDING HEIGHT -->
+    <div class="metric-block">
+      <div class="metric-header">
+        <span class="metric-title">Building Height</span>
+        <!-- Aligned from bottom so squares share a common baseline -->
+        <div class="metric-icons" style="display: flex; align-items: center;">
+          <div class="metric-icon" style="background: #B0B0B0; border-radius: 50%; width:12px; height:12px;"></div>
+          <div class="metric-icon" style="background: #B0B0B0; border-radius: 50%; width:20px; height:20px;"></div>
+         <div class="metric-icon" style="background: #B0B0B0; border-radius: 50%; width:28px; height:28px;"></div>
+        </div>
+      </div>
+      <div class="metric-subrow">
+        <button class="more-button" id="building-height-more">
+          More <span class="arrow">→</span>
+        </button>
+        <span class="metric-label">Size</span>
+      </div>
+    </div>
+
+    <!-- LAND USE -->
+    <div class="metric-block">
+      <div class="metric-header">
+        <span class="metric-title">Land Use</span>
+        <!-- 3 colored squares with black stroke -->
+        <div class="metric-icons">
+          <div class="metric-icon" style="background: #F1A7C3; border-radius: 50%;"></div>
+          <div class="metric-icon" style="background: #4C9F70; border-radius: 50%;"></div>
+          <div class="metric-icon" style="background: #FFEC8B; border-radius: 50%;"></div>
+        </div>
+      </div>
+      <div class="metric-subrow">
+        <button class="more-button" id="land-use-more">
+          More <span class="arrow">→</span>
+        </button>
+        <span class="metric-label">Hue</span>
+      </div>
+    </div>
+
+<!-- STREET NETWORK -->
+<div class="metric-block street-network">
+  <div class="metric-header">
+    <span class="metric-title">Street Pattern</span>
+    <!-- Aligned shapes in a flex container -->
+    <div class="metric-icons">
+      <!-- Circle -->
+      <div id="circle-icon" class="metric-icon" style="width:20px; height:20px;"></div>                   
+      <!-- Triangle (upright) -->
+      <div id="tri-icon" class="metric-icon" style="width:24px; height:24px;"></div>
+      <!-- Rectangle -->
+      <div id="rect-icon" class="metric-icon" style="width:17px; height:17px;"></div>
+    </div>
+  </div>
+  <div class="metric-subrow">
+    <button class="more-button" id="street-network-more">
+      More <span class="arrow">→</span>
+    </button>
+    <span class="metric-label">Shape</span>
+  </div>
+</div>
+
+  </div>
+</div>
+
+</div>
+
+
+  <div id="map"></div>
+
+  <div id="legend-container">
+    <div id="legend" class="collapsed"></div>
+       <button id="legend-toggle">
+       <img src="icon/legend-icon.svg" alt="Legend" style="width:20px; height:20px;">
+     </button>
+  </div>
+  
+  <div id="sidebar">
+    <button id="toggle-sidebar">
+      <span class="arrow"></span>
+    </button>
+    <div id="sidebar-content">
+      <div id="logo">
+        <img src="icon/logo.svg" alt="Urban Form Sonification Logo">
+        <h1>Urban Form<br>Sonification</h1>
+      </div>
+      
+      <div id="scrollable-content">
+        <!-- Begin Layer Controls Section -->
+        <h2 id="layer-controls-header" class="collapsible-header">
+          <span>LAYER CONTROLS</span>
+          <span class="arrow-icon"></span>
+        </h2>
+        <div id="layer-controls-content" class="section-content">
+          
+          <div id="metrics-section" style="display: none;">
+            <!-- Urban form metrics group header -->
+            <h3 class="collapsible-header" id="metrics-header">
+              <span>Urban Form Metrics</span>
+              <span class="arrow-icon"></span>
+            </h3>
+            <!-- Urban form metrics group options -->
+            <div id="metrics-controls" class="metric-options" style="display: none;">
+    
+    <label class="custom-radio">
+      <input type="radio" name="layer" id="building-age-toggle" value="building-age">
+      <span class="radio-mark"></span>
+      Building Age
+    </label>
+    <label class="custom-radio">
+      <input type="radio" name="layer" id="building-height-toggle" value="building-height">
+      <span class="radio-mark"></span>
+      Building Height
+    </label>
+    <label class="custom-radio">
+      <input type="radio" name="layer" id="landuse-toggle-metrics" value="landuse">
+      <span class="radio-mark"></span>
+      Land Use
+    </label>
+    <label class="custom-radio">
+      <input type="radio" name="layer" id="street-toggle-metrics" value="street">
+      <span class="radio-mark"></span>
+      Street Pattern
+    </label>
+  </div>
+  </div>
+  
+  <!-- urban form typology group header -->
+  <h3 class="collapsible-header" id="classified-header">
+    <span>Urban Form Typology</span>
+    <span class="arrow-icon"></span>
+  </h3>
+  <!-- urban form typology group options -->
+  <div id="classified-controls" class="metric-options" style="display: none;">
+    <label class="custom-radio">
+      <input type="radio" name="layer" id="city-blocks-toggle" value="city-blocks">
+      <span class="radio-mark"></span>
+      Block Explorer
+    </label>
+    <div id="identify-clusters-container" style="display: inline-block; margin-left: 25px; margin-bottom: 15px;">
+      <label class="custom-checkbox">
+        <input type="checkbox" id="identify-clusters-checkbox">
+        <span class="checkbox-mark"></span>
+        <span style="color: #ccc;">Identify Clusters</span>
+      </label>
+    </div>
+    <!-- Nested Audio/Visual options -->
+    <div id="city-blocks-mode" style="margin-left: 0px; display:none;">
+      <!-- AUDIO -->
+      <div class="audio-toggle-row" style="margin-bottom: 5px;">
+        <div class="toggle-row" style="display: flex; align-items: center; cursor: pointer;">
+          <label class="toggle-switch" style="margin-right: 8px;">
+            <input type="checkbox" id="audio-checkbox" checked>
+            <span class="slider"></span>
+          </label>
+          <span style="color:#ccc; font-size: 0.90rem">Audio</span>
+          <span class="arrow-icon" id="audio-arrow" style="margin-left: auto; margin-right: 170px;"></span>
+        </div>
+        <div id="audio-metrics" style="display: none; margin-left: 0px; margin-top: 12px;">
+          <div style="color:#ccc; display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 8px;">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="audio-building-age" checked>
+              <span class="checkbox-mark"></span>
+              B. Age
+            </label>
+            <label class="custom-checkbox" style="margin-left: 16px;">    
+              <input type="checkbox" id="audio-land-use" checked>
+              <span class="checkbox-mark"></span>
+              L. Use
+            </label>
+          </div>
+          <div style="color:#ccc; display: flex; flex-wrap: wrap; gap: 15px;">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="audio-building-height" checked>
+              <span class="checkbox-mark"></span>
+              B. Height
+            </label>
+            <label class="custom-checkbox">
+              <input type="checkbox" id="audio-street-network" checked>
+              <span class="checkbox-mark"></span>
+              S. Pattern
+            </label>
+          </div>
+        </div>
+      </div>
+    
+      <!-- VISUAL -->
+      <div class="visual-toggle-row" style="margin-bottom: 5px;">
+        <div class="toggle-row" style="display: flex; align-items: center; cursor: pointer;">
+          <label class="toggle-switch" style="margin-right: 8px;">
+            <input type="checkbox" id="visual-checkbox" checked>
+            <span class="slider"></span>
+          </label>
+          <span style="color:#ccc; font-size: 0.90rem">Visual</span>
+          <span class="arrow-icon" id="visual-arrow" style="margin-left: auto; margin-right: 170px;"></span>
+        </div>
+        <div id="visual-metrics" style="color:#ccc; display: none; margin-left: 0px; margin-top: 12px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 8px;">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="visual-building-age" checked>
+              <span class="checkbox-mark"></span>
+              B. Age
+            </label>
+            <label class="custom-checkbox" style="margin-left: 16px;">
+              <input type="checkbox" id="visual-land-use" checked>
+              <span class="checkbox-mark"></span>
+              L. Use
+            </label>
+          </div>
+          <div style="color:#ccc; display: flex; flex-wrap: wrap; gap: 15px;">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="visual-building-height" checked>
+              <span class="checkbox-mark"></span>
+              B. Height
+            </label>
+            <label class="custom-checkbox">
+              <input type="checkbox" id="visual-street-network" checked>
+              <span class="checkbox-mark"></span>
+              S. Pattern
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>      
+      
+    <label class="custom-radio" style="margin-top: 18px;">
+      <input type="radio" name="layer" id="clusters-toggle" value="clusters">
+      <span class="radio-mark"></span>
+      Clusters
+    </label>
+  </div>
+</div>
+<!-- End Layer Controls Section -->
+  
+<!-- 3) Settings -->
+<h2 id="settings-header" class="collapsible-header">
+  <span>SETTINGS</span>
+  <span class="arrow-icon"></span>
+</h2>
+<div id="settings-content" class="section-content" style="display: none;">
+  <!-- task checkboxes at the top of the settings section -->
+  <div class="layer-control">
+    <label class="custom-checkbox">
+      <input type="checkbox" id="visual-task-blocks">
+      <span class="checkbox-mark"></span>
+      <span style="color: #ccc; margin-left: 8px;">Visual Task Blocks</span>
+    </label>
+  </div>
+  
+  <div class="layer-control">
+    <label class="custom-checkbox">
+      <input type="checkbox" id="audio-task-blocks">
+      <span class="checkbox-mark"></span>
+      <span style="color: #ccc; margin-left: 8px;">Audio Task Blocks</span>
+    </label>
+  </div>
+  
+  <div class="layer-control">
+    <label class="custom-checkbox">
+      <input type="checkbox" id="audio-visual-task-blocks">
+      <span class="checkbox-mark"></span>
+      <span style="color: #ccc; margin-left: 8px;">Audio-Visual Task Blocks</span>
+    </label>
+  </div>
+  
+  <!-- Existing controls remain below -->
+  <div class="layer-control">
+    <label class="toggle-switch">
+      <input type="checkbox" id="sound-toggle" checked>
+      <span class="slider"></span>
+    </label>
+    <label for="sound-toggle" style="margin-left: 8px;">Sound</label>
+  </div>
+  <!-- Show Metrics toggle -->
+  <div class="layer-control" style="margin-top: 10px;">
+    <label class="custom-checkbox">
+      <input type="checkbox" id="show-metrics-toggle">
+      <span class="checkbox-mark"></span>
+      <span style="color: #ccc; margin-left: 8px;">Show Metrics</span>
+    </label>
+    <img src="icon/about.png" id="metrics-info-icon" style="width: 12px; height: 12px; margin-left: 5px; cursor: pointer;">
+    <div id="metrics-info-tooltip" style="position: absolute; background-color: #333; color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; max-width: 200px; z-index: 1000; display: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+      Includes building age, height, land use, and network layers for reference.
+    </div>
+  </div>
+</div>
+  
+    <!-- 4) Footer with new icon order -->
+    <div id="panel-footer">
+      <div class="panel-icon" id="about-icon">
+        <img src="icon/about.png" alt="About" />
+        <span class="panel-tooltip">About</span>
+      </div>
+      <div class="panel-icon" id="guide-icon">
+        <img src="icon/guide.png" alt="Guide" />
+        <span class="panel-tooltip">Guide</span>
+      </div>
+      <div class="panel-icon" id="music-icon">
+        <img src="icon/music.png" alt="Music" />
+        <span class="panel-tooltip">Music</span>
+      </div>
+      <div class="panel-icon" id="tutorial-icon">
+        <img src="icon/tutorial.png" alt="Tutorial" />
+        <span class="panel-tooltip">Tutorial</span>
+      </div>
+    </div>
+  </div>  
+</div>
+  
+  <div class="sound-indicator">Playing sound: <span id="sound-name"></span></div>
+  
+  
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+     // ensure Tone is ready to be used with a click event
+     document.body.addEventListener('click', async () => {
+      if (window.Tone && window.Tone.context && window.Tone.context.state !== 'running') {
+        try {
+          await window.Tone.start();
+          console.log('Tone.js context started successfully on click');
+        } catch (error) {
+          console.error('Failed to start Tone.js context:', error);
+        }
+      }
+    });
+// event listener for mobile
+document.body.addEventListener('touchstart', async () => {
+  if (window.Tone && window.Tone.context && window.Tone.context.state !== 'running') {
+    try {
+      await window.Tone.start();
+      console.log('Tone.js context started successfully on touch');
+    } catch (error) {
+      console.error('Failed to start Tone.js context:', error);
+    }
+  }
+}, { once: true });
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  // layer controls visible by default
+  document.getElementById('layer-controls-content').style.display = 'block';
+  document.getElementById('layer-controls-header').classList.add('expanded');
+  
+  // Urban Form Metrics visible by default
+  document.getElementById('metrics-controls').style.display = 'block';
+  document.getElementById('metrics-header').classList.add('expanded');
+// Show Metrics toggle functionality
+const showMetricsToggle = document.getElementById('show-metrics-toggle');
+  const metricsSection = document.getElementById('metrics-section');
+  
+  if (showMetricsToggle && metricsSection) {
+    // Start with metrics hidden
+    metricsSection.style.display = 'none';
+    
+    showMetricsToggle.addEventListener('change', function() {
+      metricsSection.style.display = this.checked ? 'block' : 'none';
+      
+      if (this.checked) {
+        const metricsHeader = document.getElementById('metrics-header');
+        const metricsControls = document.getElementById('metrics-controls');
+        
+        if (metricsHeader && metricsControls) {
+          metricsHeader.classList.remove('expanded');
+          metricsControls.style.display = 'none';
+        }
+      }
+    });
+  }
+  
+  // Info icon tooltip functionality
+  const metricsInfoIcon = document.getElementById('metrics-info-icon');
+  const metricsInfoTooltip = document.getElementById('metrics-info-tooltip');
+  
+  if (metricsInfoIcon && metricsInfoTooltip) {
+    metricsInfoIcon.addEventListener('mouseenter', function() {
+      const rect = metricsInfoIcon.getBoundingClientRect();
+      metricsInfoTooltip.style.left = (rect.right + 10) + 'px';
+      metricsInfoTooltip.style.top = (rect.top - 5) + 'px';
+      metricsInfoTooltip.style.display = 'block';
+    });
+    
+    metricsInfoIcon.addEventListener('mouseleave', function() {
+      metricsInfoTooltip.style.display = 'none';
+    });
+  }
+
+  document.getElementById('classified-controls').style.display = 'block';
+  document.getElementById('classified-header').classList.add('expanded');
+  
+  setTimeout(() => {
+    const cityBlocksRadio = document.getElementById('city-blocks-toggle');
+    if (cityBlocksRadio) {
+      cityBlocksRadio.checked = true;
+      const event = new Event('change');
+      cityBlocksRadio.dispatchEvent(event);
+    }
+  }, 100);
+});
+
+// LAYER CONTROLS toggle with arrow adjustment
+document.getElementById('layer-controls-header').addEventListener('click', function() {
+  const content = document.getElementById('layer-controls-content');
+  if (window.getComputedStyle(content).display === 'none') {
+    content.style.display = 'block';
+    this.classList.add('expanded');  
+  } else {
+    content.style.display = 'none';
+    this.classList.remove('expanded');  
+    document.getElementById('metrics-controls').style.display = 'none';
+    document.getElementById('classified-controls').style.display = 'none';
+    document.getElementById('metrics-header').classList.remove('expanded');
+    document.getElementById('classified-header').classList.remove('expanded');
+    document.getElementById('metrics-header').style.fontWeight = 'normal';
+    document.getElementById('classified-header').style.fontWeight = 'normal';
+  }
+});
+// SETTINGS toggle with arrow adjustment
+document.getElementById('settings-header').addEventListener('click', function() {
+  const content = document.getElementById('settings-content');
+  if (window.getComputedStyle(content).display === 'none') {
+    content.style.display = 'block';
+    this.classList.add('expanded'); 
+  } else {
+    content.style.display = 'none';
+    this.classList.remove('expanded'); 
+  }
+});
+
+// Sidebar toggle functionality
+document.getElementById('toggle-sidebar').addEventListener('click', function() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('collapsed');
+
+  const scaleControl = document.querySelector('.mapboxgl-ctrl-bottom-left');
+  if (scaleControl) {
+  scaleControl.style.transition = 'margin-left 0.5s ease';
+}
+  if (sidebar.classList.contains('collapsed')) {
+    scaleControl.style.marginLeft = '0px';
+  } else {
+    scaleControl.style.marginLeft = '320px';
+  }
+});
+
+
+// Legend toggle functionality
+document.getElementById('legend-toggle').addEventListener('click', function() {
+  document.getElementById('legend').classList.toggle('collapsed');
+});
+
+document.getElementById('metrics-header').addEventListener('click', function(e) {
+  e.stopPropagation();
+  const content = document.getElementById('metrics-controls');
+  if (window.getComputedStyle(content).display === 'none') {
+    content.style.display = 'block';
+    this.classList.add('expanded');  
+  } else {
+    content.style.display = 'none';
+    this.classList.remove('expanded');  
+  }
+});
+// Toggle urban form typology group
+document.getElementById('classified-header').addEventListener('click', function(e) {
+  e.stopPropagation();
+  const content = document.getElementById('classified-controls');
+  if (window.getComputedStyle(content).display === 'none') {
+    content.style.display = 'block';
+    this.classList.add('expanded');  
+  } else {
+    content.style.display = 'none';
+    this.classList.remove('expanded'); 
+  }
+});
+
+// Show/hide the Audio/Visual checkboxes based on the block explorer selection
+const cityBlocksRadio = document.getElementById('city-blocks-toggle');
+const clustersRadio   = document.getElementById('clusters-toggle');
+const cityBlocksMode  = document.getElementById('city-blocks-mode');
+
+cityBlocksRadio.addEventListener('change', function() {
+  if (cityBlocksRadio.checked) {
+    cityBlocksMode.style.display = 'block';
+  }
+});
+
+clustersRadio.addEventListener('change', function() {
+  if (clustersRadio.checked) {
+    cityBlocksMode.style.display = 'none';
+  }
+});
+
+
+    // Mapbox access token
+    mapboxgl.accessToken = 'pk.eyJ1IjoiaGNjcngiLCJhIjoiY204b3BpcndxMDJjZzJsc2QwZ3J5MG9teiJ9.05BEoK7aZljyVD_OCtyEFQ';
+    console.log("Initializing map...");
+    const amsterdamBounds = new mapboxgl.LngLatBounds(
+      [4.728927, 52.278174], // Southwest coordinates 
+      [5.079784, 52.431064]  // Northeast coordinates 
+    );
+    const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/light-v11',
+  center: [4.89, 52.37],
+  zoom: 13,
+  maxZoom: 18,
+  minZoom: 5,
+  bounds: amsterdamBounds, 
+  fitBoundsOptions: {     
+    padding: { top: 20, bottom: 20, left: 320, right: 20 }, 
+    animate: false        
+  },                      
+  transformRequest: (url, resourceType) => {
+    console.log(`Loading ${resourceType}: ${url}`);
+    return { url: url };
+  }
+});
+    map.on('styledata', () => { console.log('Map style data loaded'); });
+    map.on('sourcedataloading', (e) => { console.log('Source data loading:', e.sourceId); });
+    map.on('sourcedata', (e) => { if (e.isSourceLoaded) { console.log('Source data loaded:', e.sourceId); } });
+    map.addControl(new mapboxgl.NavigationControl());
+    map.addControl(new mapboxgl.ScaleControl({ maxWidth: 150, unit: 'metric' }), 'bottom-left');
+    window.map = map;
+    
+    function createLegend() {
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '<h3 style="margin-top: 0;">Legend</h3>';
+  
+  const activeLayer = document.querySelector('input[name="layer"]:checked')?.value;
+  
+  if (activeLayer === 'city-blocks') {
+    // CUSTOM LEGEND FOR block explorer (with Audio/Visual icons)
+    const cityBlocksRow = document.createElement('div');
+    cityBlocksRow.style.display = 'flex';
+    cityBlocksRow.style.alignItems = 'center';
+    cityBlocksRow.style.gap = '20px';
+    
+    const cityLabelDiv = document.createElement('div');
+    cityLabelDiv.style.display = 'flex';
+    cityLabelDiv.style.alignItems = 'center';
+    cityLabelDiv.style.gap = '5px';
+    cityLabelDiv.innerHTML = `
+      <div class="legend-color" style="background-color: #BABABA; width:15px; height:15px;"></div>
+      <span>City Blocks</span>
+    `;
+    cityBlocksRow.appendChild(cityLabelDiv);
+
+    const iconContainer = document.createElement('div');
+    iconContainer.style.display = 'flex';
+    iconContainer.style.alignItems = 'center';
+    iconContainer.style.gap = '10px';
+    
+    const audioWrapper = document.createElement('div');
+    audioWrapper.style.display = 'flex';
+    audioWrapper.style.alignItems = 'center';
+    audioWrapper.style.cursor = 'pointer';
+    audioWrapper.innerHTML = `
+      <img id="legend-audio-icon" src="icon/guide_grey.png" alt="Audio" style="width:20px; height:20px; margin-right:5px;">
+      <span>Audio</span>
+    `;
+    audioWrapper.addEventListener('click', () => {
+  const iconImg = document.getElementById('legend-audio-icon');
+ 
+  if (iconImg.src.includes('icon/guide_grey.png')) {
+    iconImg.src = 'icon/guide_color.png';
+    showAudioGuidePanel();
+    wasAudioPanelOpen = true;
+  } else {
+    const audioPanels = [
+      'audio-guide-panel',
+      'audio-building-age-details-panel',
+      'audio-building-height-details-panel',
+      'audio-land-use-details-panel',
+      'audio-street-network-details-panel'
+    ];
+    
+    audioPanels.forEach(id => {
+      const panel = document.getElementById(id);
+      if (panel) panel.style.display = 'none';
+    });
+    
+    iconImg.src = 'icon/guide_grey.png';
+    wasAudioPanelOpen = false;
+  }
+ 
+  setTimeout(positionGuidePanels, 10);
+});
+
+    iconContainer.appendChild(audioWrapper);
+    
+    const visualWrapper = document.createElement('div');
+    visualWrapper.style.display = 'flex';
+    visualWrapper.style.alignItems = 'center';
+    visualWrapper.style.cursor = 'pointer';
+    visualWrapper.style.marginRight = '40px';
+    visualWrapper.innerHTML = `
+      <img id="legend-visual-icon" src="icon/guide_grey.png" alt="Visual" style="width:20px; height:20px; margin-right:5px;">
+      <span>Visual</span>
+    `;
+visualWrapper.addEventListener('click', () => {
+  const iconImg = document.getElementById('legend-visual-icon');
+ 
+  if (iconImg.src.includes('icon/guide_color.png')) {
+    const visualPanels = [
+      'visual-guide-panel',
+      'building-age-details-panel', 
+      'building-height-details-panel', 
+      'land-use-details-panel', 
+      'street-network-details-panel'
+    ];
+    
+    visualPanels.forEach(id => {
+      const panel = document.getElementById(id);
+      if (panel) panel.style.display = 'none';
+    });
+    
+    iconImg.src = 'icon/guide_grey.png';
+    wasVisualPanelOpen = false;
+    lastActiveMetricPanel = null;
+  } else {
+    showVisualGuidePanel();
+    iconImg.src = 'icon/guide_color.png';
+    wasVisualPanelOpen = true;
+    lastActiveMetricPanel = null;
+  }
+ 
+  setTimeout(positionGuidePanels, 10);
+});
+
+iconContainer.appendChild(visualWrapper);
+
+cityBlocksRow.appendChild(iconContainer);
+
+legend.appendChild(cityBlocksRow);
+    
+  } else if (activeLayer === 'clusters') {
+    const title = document.createElement('h4');
+    title.textContent = 'Urban Form Clusters';
+    title.style.marginBottom = '5px';
+    legend.appendChild(title);
+    const clusters = [
+      { value: '0', color: '#1f77b4' },
+      { value: '1', color: '#9cba7f' },
+      { value: '2', color: '#e2c572' },
+      { value: '3', color: '#f28e2c' },
+      { value: '4', color: '#b276c8' },
+      { value: '5', color: '#d62728' }
+    ];
+    clusters.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      div.dataset.clusterValue = item.value;
+      div.innerHTML = `<div class="legend-color" style="background-color: ${item.color}; width:15px; height:15px;"></div><span>Cluster ${item.value}</span>`;
+      legend.appendChild(div);
+    });
+  } else if (activeLayer === 'building-height') {
+    const title = document.createElement('h4');
+title.textContent = 'Building Height (m)';
+title.style.marginBottom = '5px';
+legend.appendChild(title);
+const buildingHeightClasses = [
+  { range: '0 – 6', color: '#f1eef6', min: 0, max: 6 },
+  { range: '6 – 15', color: '#a6bddb', min: 6, max: 15 },
+  { range: '15 – 27', color: '#3690c0', min: 15, max: 27 },
+  { range: '27 – 50', color: '#045a8d', min: 27, max: 50 },
+  { range: '50+', color: '#023858', min: 50, max: Infinity }
+];
+    buildingHeightClasses.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      div.dataset.minVal = item.min;
+      div.dataset.maxVal = item.max;
+      div.innerHTML = `<div class="legend-color" style="background-color: ${item.color}; width:15px; height:15px;"></div><span>${item.range}</span>`;
+      legend.appendChild(div);
+    });
+  } else if (activeLayer === 'building-age') {
+    const title = document.createElement('h4');
+title.textContent = 'Building Age (years)';
+title.style.marginBottom = '5px';
+legend.appendChild(title);
+const buildingAgeClasses = [
+  { range: '0 – 25', color: '#ffffb2', min: 0, max: 25 },
+  { range: '25 – 65', color: '#feb24c', min: 25, max: 65 },
+  { range: '65 – 135', color: '#fc4e2a', min: 65, max: 135 },
+  { range: '135 – 190', color: '#bd0026', min: 135, max: 190 },
+  { range: '190+', color: '#800026', min: 190, max: Infinity }
+];
+    buildingAgeClasses.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      div.dataset.minVal = item.min;
+      div.dataset.maxVal = item.max;
+      div.innerHTML = `<div class="legend-color" style="background-color: ${item.color}; width:15px; height:15px;"></div><span>${item.range}</span>`;
+      legend.appendChild(div);
+    });
+  } else if (activeLayer === 'landuse') {
+    const title = document.createElement('h4');
+    title.textContent = 'Land Use Classes';
+    title.style.marginBottom = '5px';
+    legend.appendChild(title);
+    const landUseClasses = [
+      { name: 'Agricultural', color: '#A8D08D' },
+      { name: 'Business & Industry', color: '#1F4E79' },
+      { name: 'Center & Mixed-Use', color: '#FFB84D' },
+      { name: 'Culture, Recreation & Sports', color: '#A4C9E1' },
+      { name: 'Retail & Services', color: '#F1A7C3' },
+      { name: 'Hospitality & Office', color: '#D9A0D1' },
+      { name: 'Social & Community', color: '#D3A76D' },
+      { name: 'Nature & Green Spaces', color: '#4C9F70' },
+      { name: 'Residential', color: '#FFEC8B' },
+      { name: 'Water Bodies', color: '#4A90E2' },
+      { name: 'Others', color: '#B0B0B0' }
+    ];
+    landUseClasses.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      div.dataset.luClass = item.name;
+      div.innerHTML = `<div class="legend-color" style="background-color: ${item.color}; width:15px; height:15px;"></div><span>${item.name}</span>`;
+      legend.appendChild(div);
+    });
+  } else if (activeLayer === 'street') {
+    const title = document.createElement('h4');
+    title.textContent = 'Street Network Types';
+    title.style.marginBottom = '5px';
+    legend.appendChild(title);
+    const streetNetworkTypes = [
+      { type: 'Type 1-2', color: '#E63946' },
+      { type: 'Type 2-2', color: '#1D3557' },
+      { type: 'Type 2-3', color: '#457B9D' },
+      { type: 'Type 2-4', color: '#8ac7d6' },
+      { type: 'Type 3-1', color: '#E9C46A' },
+      { type: 'Type 4-1', color: '#F4A261' },
+      { type: 'Type 4-2', color: '#2A9134' }
+    ];
+    streetNetworkTypes.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'legend-item';
+      div.dataset.streetType = item.type;
+      div.innerHTML = `<div class="legend-color" style="background-color: ${item.color}; width:15px; height:15px;"></div><span>${item.type}</span>`;
+      legend.appendChild(div);
+    });
+  }
+}
+    
+    function hideAllLayers() {
+      const layers = ['clusters', 'city-blocks', 'building-height', 'building-age', 'landuse', 'street'];
+  layers.forEach(layer => {
+    if (map.getLayer(layer)) {
+      toggleLayer(layer, false);
+      console.log(`Hiding layer: ${layer}`);
+        }
+      });
+    }
+    
+    function handleMetricChange(e) {
+      if (e.target.checked) {
+        hideAllLayers();
+        const value = e.target.value;
+        console.log('Selected metric:', value);
+        if (value === 'building-height') {
+          toggleLayer('building-height', true);
+        } else if (value === 'building-age') {
+          toggleLayer('building-age', true);
+        } else if (value === 'landuse') {
+          toggleLayer('landuse', true);
+        } else if (value === 'street') {
+          toggleLayer('street', true);
+        }
+        createLegend();
+      }
+    }
+    
+    function safelyAddSource(id, config) {
+      try {
+        if (map.getSource(id)) {
+          console.log(`Removing existing source: ${id}`);
+          map.getStyle().layers.forEach(layer => {
+            if (layer.source === id && map.getLayer(layer.id)) {
+              map.removeLayer(layer.id);
+            }
+          });
+          map.removeSource(id);
+        }
+        map.addSource(id, config);
+        console.log(`Successfully added source: ${id}`);
+        return true;
+      } catch (error) {
+        console.error(`Error adding source ${id}:`, error);
+        return false;
+      }
+    }
+    
+    function safelyAddLayer(id, config) {
+      try {
+        if (map.getLayer(id)) {
+          console.log(`Removing existing layer: ${id}`);
+          map.removeLayer(id);
+        }
+        map.addLayer(config);
+        console.log(`Successfully added layer: ${id}`);
+        return true;
+      } catch (error) {
+        console.error(`Error adding layer ${id}:`, error);
+        return false;
+      }
+    }
+    
+async function loadGeoJSON(path) {
+  try {
+    let url = path;
+    let isZipped = false;
+
+    // Check if this file should be loaded as a ZIP compressed file
+    if (path.includes("landuse.geojson")) {
+      url = "landuse.zip";
+      isZipped = true;
+    } else if (path.includes("height_age.geojson")) {
+      url = "height_age.zip";
+      isZipped = true;
+    }
+    // For other files like clusters.geojson, street.geojson, boundary.geojson
+    // they will use the original path since they're not compressed
+
+    console.log(`Attempting to load ${isZipped ? 'ZIP compressed ' : ''}file from: ${url}`);
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error(`Failed to fetch ${url} - Status: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to load ${url} — Status: ${response.status} ${response.statusText}`);
+    }
+
+    let data;
+    
+    if (isZipped) {
+      // Handle ZIP compressed files using JSZip
+      console.log("Processing ZIP compressed file...");
+      const arrayBuffer = await response.arrayBuffer();
+      
+      // Check if JSZip is available
+      if (typeof JSZip === 'undefined') {
+        throw new Error('JSZip library not loaded. Please check the script tag.');
+      }
+      
+      try {
+        // Use JSZip to extract the file
+        console.log("Loading ZIP archive...");
+        const zip = new JSZip();
+        const zipContents = await zip.loadAsync(arrayBuffer);
+        
+        // Find the .geojson file in the archive
+        let geoJsonFileName = null;
+        console.log("Files found in ZIP archive:");
+        
+        Object.keys(zipContents.files).forEach(fileName => {
+          console.log(`- ${fileName}`);
+          if (fileName.endsWith('.geojson') && !zipContents.files[fileName].dir) {
+            geoJsonFileName = fileName;
+          }
+        });
+        
+        if (!geoJsonFileName) {
+          throw new Error("No .geojson file found in ZIP archive");
+        }
+        
+        console.log(`Extracting ${geoJsonFileName} from ZIP archive...`);
+        const fileContent = await zipContents.file(geoJsonFileName).async("string");
+        
+        console.log(`Successfully extracted ${geoJsonFileName} (${fileContent.length} characters)`);
+        data = JSON.parse(fileContent);
+        console.log(`Successfully parsed GeoJSON from ZIP archive`);
+        
+      } catch (zipError) {
+        console.error("Failed to process ZIP file:", zipError);
+        throw new Error(`ZIP extraction failed: ${zipError.message}`);
+      }
+      
+    } else {
+      // Handle regular JSON files (clusters, street, boundary)
+      console.log("Processing regular JSON file...");
+      data = await response.json();
+    }
+
+    const featureCount = data.features ? data.features.length : 'unknown';
+    console.log(`GeoJSON loaded successfully (${featureCount} features)`);
+    
+    return data;
+    
+  } catch (error) {
+    console.error(`Error loading GeoJSON from ${path}:`, error);
+    console.log(`Creating fallback data for ${path}...`);
+    
+    // Return empty but valid GeoJSON structure to prevent crashes
+    return {
+      type: "FeatureCollection",
+      features: []
+    };
+  }
+}
+
+function createFallbackGeoJSON(path) {
+  // Create minimal fallback data to prevent app crashes
+  const fallbackData = {
+    type: "FeatureCollection",
+    features: []
+  };
+  
+  console.log(`Created fallback GeoJSON for ${path}`);
+  return fallbackData;
+}
+    
+    function toggleLayer(layerId, visible) {
+      if (!map.isStyleLoaded()) {
+        console.warn(`Map style not loaded yet, will retry toggle of ${layerId} in 100ms`);
+        setTimeout(() => toggleLayer(layerId, visible), 100);
+        return;
+      }
+      if (!map.getLayer(layerId)) {
+        console.warn(`Layer ${layerId} not found, cannot toggle visibility`);
+        return;
+      }
+      try {
+        map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+        console.log(`Set ${layerId} visibility to ${visible ? 'visible' : 'none'}`);
+      } catch (error) {
+        console.error(`Error toggling layer ${layerId} visibility:`, error);
+        try {
+          const layerType = map.getLayer(layerId).type;
+          const opacity = visible ? 0.9 : 0;
+          if (layerType === 'fill') {
+            map.setPaintProperty(layerId, 'fill-opacity', opacity);
+          } else if (layerType === 'line') {
+            map.setPaintProperty(layerId, 'line-opacity', opacity);
+          } else if (layerType === 'circle') {
+            map.setPaintProperty(layerId, 'circle-opacity', opacity);
+          } else if (layerType === 'symbol') {
+            map.setPaintProperty(layerId, 'icon-opacity', opacity);
+            map.setPaintProperty(layerId, 'text-opacity', opacity);
+          }
+          console.log(`Used opacity fallback for ${layerId}: ${opacity}`);
+        } catch (fallbackError) {
+          console.error(`Fallback opacity toggle failed for ${layerId}:`, fallbackError);
+        }
+      }
+    }
+    
+    map.on('load', async () => {
+  console.log("Map loaded, adding layers...");
+  // Load GeoJSON data.
+  const [clustersData, heightAgeData, landuseData, streetData, boundaryData] = await Promise.all([
+    loadGeoJSON('clusters.geojson'),
+    loadGeoJSON('height_age.geojson'),
+    loadGeoJSON('landuse.geojson'),
+    loadGeoJSON('street.geojson'),
+    loadGeoJSON('boundary.geojson')
+  ]);
+
+  if (clustersData) {
+    try {
+      safelyAddSource('clusters-source', {
+        type: 'geojson',
+        data: clustersData,
+        tolerance: 0.01,
+        buffer: 128
+      });
+      
+      safelyAddLayer('clusters', {
+        id: 'clusters',
+        type: 'fill',
+        source: 'clusters-source',
+        paint: {
+          'fill-color': [
+            'match',
+            ['get', 'Cluster'],
+            '0', '#1f77b4',
+            '1', '#9cba7f',
+            '2', '#e2c572',
+            '3', '#f28e2c',
+            '4', '#b276c8',
+            '5', '#d62728',
+            'rgba(0,0,0,0)'
+          ],
+          'fill-opacity': 0.9,
+          'fill-outline-color': 'rgba(0,0,0,0.1)'
+        },
+        layout: { 'visibility': 'none' } 
+      });
+      
+      safelyAddLayer('city-blocks', {
+        id: 'city-blocks',
+        type: 'fill',
+        source: 'clusters-source',
+        paint: {
+          'fill-color': '#A6A6A6',
+          'fill-opacity': 0.75,
+          'fill-outline-color': 'rgba(0,0,0,0.1)'
+        },
+        layout: { 'visibility': 'none' }
+      });
+      
+    } catch (clusterError) {
+      console.error("Error adding clusters layer:", clusterError);
+    }
+  } else {
+    console.error("Failed to load clusters data");
+  }
+
+  if (heightAgeData) {
+    safelyAddSource('height-age-source', {
+      type: 'geojson',
+      data: heightAgeData
+    });
+    safelyAddLayer('building-height', {
+      id: 'building-height',
+      type: 'fill',
+      source: 'height-age-source',
+      paint: {
+'fill-color': [
+  'step',
+  ['get', 'height'],
+  '#f1eef6',
+  6, '#a6bddb',
+  15, '#3690c0',
+  27, '#045a8d',
+  50, '#023858'
+],
+        'fill-opacity': 0.9,
+        'fill-outline-color': 'rgba(0,0,0,0.1)'
+      },
+      layout: { 'visibility': 'none' }
+    });
+    safelyAddLayer('building-age', {
+      id: 'building-age',
+      type: 'fill',
+      source: 'height-age-source',
+      paint: {
+'fill-color': [
+  'step',
+  ['get', 'age'],
+  '#ffffb2',
+  25, '#feb24c',
+  65, '#fc4e2a',
+  135, '#bd0026',
+  190, '#800026'
+],
+        'fill-opacity': 0.9,
+        'fill-outline-color': 'rgba(0,0,0,0.1)'
+      },
+      layout: { 'visibility': 'none' }
+    });
+  } else {
+    console.error("Failed to load height_age data");
+  }
+
+  if (landuseData) {
+    safelyAddSource('landuse-source', {
+      type: 'geojson',
+      data: landuseData
+    });
+    safelyAddLayer('landuse', {
+      id: 'landuse',
+      type: 'fill',
+      source: 'landuse-source',
+      paint: {
+        'fill-color': [
+          'match',
+          ['get', 'new_lu_class'],
+          'Agricultural', '#A8D08D',
+          'Business & Industry', '#1F4E79',
+          'Center & Mixed-Use', '#FFB84D',
+          'Culture, Recreation & Sports', '#A4C9E1',
+          'Retail & Services', '#F1A7C3',
+          'Hospitality & Office', '#D9A0D1',
+          'Social & Community', '#D3A76D',
+          'Nature & Green Spaces', '#4C9F70',
+          'Residential', '#FFEC8B',
+          'Water Bodies', '#4A90E2',
+          'Others', '#B0B0B0',
+          '#CCCCCC'
+        ],
+        'fill-opacity': 0.9,
+        'fill-outline-color': 'rgba(0,0,0,0.1)'
+      },
+      layout: { 'visibility': 'none' }
+    });
+  } else {
+    console.error("Failed to load landuse data");
+  }
+
+  if (streetData) {
+    safelyAddSource('street-source', {
+      type: 'geojson',
+      data: streetData
+    });
+    safelyAddLayer('street', {
+      id: 'street',
+      type: 'line',
+      source: 'street-source',
+      paint: {
+        'line-color': [
+          'match',
+          ['get', 'Type'],
+          'Type 1-2', '#E63946',
+          'Type 2-2', '#1D3557',
+          'Type 2-3', '#457B9D',
+          'Type 2-4', '#8ac7d6',
+          'Type 3-1', '#E9C46A',
+          'Type 4-1', '#F4A261',
+          'Type 4-2', '#2A9134',
+          '#AAAAAA'
+        ],
+        'line-width': 2,
+        'line-opacity': 0.8
+      },
+      layout: { 'visibility': 'none' }
+    });
+  } else {
+    console.error("Failed to load street data");
+  }
+
+if (boundaryData) {
+    safelyAddSource('amsterdam-boundary-source', {
+      type: 'geojson',
+      data: boundaryData
+    });
+    safelyAddLayer('amsterdam-boundary', {
+      id: 'amsterdam-boundary',
+      type: 'line',
+      source: 'amsterdam-boundary-source',
+      paint: {
+        'line-color': '#555',
+        'line-width': 2,
+        'line-opacity': 1.0,
+        'line-dasharray': [2, 2]
+      },
+      layout: { visibility: 'visible' }
+    });
+  // Fit the map to the Amsterdam Boundary extent.
+const preciseBounds = new mapboxgl.LngLatBounds();
+boundaryData.features.forEach(feature => {
+  if (feature.geometry.type === 'Polygon') {
+    feature.geometry.coordinates[0].forEach(coord => preciseBounds.extend(coord));
+  } else if (feature.geometry.type === 'MultiPolygon') {
+    feature.geometry.coordinates.forEach(polygon => {
+      polygon[0].forEach(coord => preciseBounds.extend(coord));
+    });
+  }
+});
+
+  } else {
+    console.error("Failed to load boundary data");
+  }
+
+const legendElement = document.getElementById('legend');
+legendElement.classList.add('collapsed');
+
+document.querySelectorAll('input[name="metric"]').forEach(radio => {
+    radio.addEventListener('change', handleMetricChange);
+  });
+
+createLegend();
+console.log("All layers added successfully");
+});
+
+    document.querySelectorAll('input[name="classified"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        if (e.target.value === 'clusters') {
+          toggleLayer('clusters', true);
+          toggleLayer('city-blocks', false);
+        } else if (e.target.value === 'city-blocks') {
+          toggleLayer('clusters', false);
+          toggleLayer('city-blocks', true);
+        }
+      });
+    });
+
+    document.getElementById('city-blocks-toggle').addEventListener('change', function() {
+  if (this.checked) {
+    document.getElementById('city-blocks-mode').style.display = 'block';
+    document.getElementById('identify-clusters-container').style.display = 'inline-block';
+  }
+});
+
+document.getElementById('clusters-toggle').addEventListener('change', function() {
+  if (this.checked) {
+    document.getElementById('city-blocks-mode').style.display = 'none';
+    document.getElementById('identify-clusters-container').style.display = 'none';
+  }
+});
+
+document.querySelectorAll('input[name="layer"]').forEach(function(radio) {
+  radio.addEventListener('change', function() {
+    if (this.id !== 'city-blocks-toggle' && this.checked) {
+      document.getElementById('city-blocks-mode').style.display = 'none';
+      document.getElementById('identify-clusters-container').style.display = 'none';
+    } else if (this.id === 'city-blocks-toggle' && this.checked) {
+      document.getElementById('city-blocks-mode').style.display = 'block';
+      document.getElementById('identify-clusters-container').style.display = 'inline-block';
+    }
+  });
+});
+document.addEventListener('DOMContentLoaded', function() {
+  const layerRadios = document.querySelectorAll('input[name="layer"]');
+  
+  let currentlySelected = null;
+  
+  layerRadios.forEach(radio => {
+    radio.addEventListener('click', function(e) {
+      if (this === currentlySelected) {
+        e.preventDefault();
+        
+        this.checked = false;
+        
+        hideAllLayers();
+        
+        currentlySelected = null;
+      } else {
+        currentlySelected = this;
+      }
+    });
+  });
+  
+  layerRadios.forEach(radio => {
+    if (radio.checked) {
+      currentlySelected = radio;
+    }
+  });
+});
+
+// Connect Audio and Visual checkboxes to their functionalities for block explorer
+document.getElementById('audio-checkbox').addEventListener('change', function() {
+  if (this.checked) {
+    console.log('Audio enabled for City Blocks');
+  } else {
+    console.log('Audio disabled for City Blocks');
+  }
+});
+
+document.getElementById('visual-checkbox').addEventListener('change', function() {
+  if (this.checked) {
+    console.log('Visual enabled for City Blocks');
+  } else {
+    console.log('Visual disabled for City Blocks');
+  }
+});
+
+    document.body.addEventListener('click', async () => {
+      if (Tone && Tone.context && Tone.context.state !== 'running') {
+        try {
+          await Tone.start();
+          console.log('Tone.js started');
+        } catch (error) {
+          console.error('Failed to start Tone.js:', error);
+        }
+      }
+    });
+    
+    window.addEventListener('resize', () => { map.resize(); });
+  </script>
+  
+  <!-- Basemap Toggle Control -->
+  <script>
+    class BasemapToggleControl {
+      constructor(options) {
+        this.options = options || {};
+        this._map = null;
+        this.container = null;
+        this.popupContainer = null;
+        this.opacityTooltip = null;
+      }
+    
+      onAdd(map) {
+        this._map = map;
+    
+        // container
+        this.container = document.createElement('div');
+        this.container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group basemap-toggle-ctrl';
+    
+        // opacity tooltip
+        this.opacityTooltip = document.createElement('div');
+        this.opacityTooltip.className = 'opacity-tooltip';
+        document.body.appendChild(this.opacityTooltip);
+    
+        // button
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'basemap-button';
+    
+        const icon = document.createElement('img');
+        icon.src = 'icon/basemap.svg';
+        icon.alt = 'Basemap icon';
+        icon.style.width = '20px';
+        icon.style.height = '20px';
+        button.appendChild(icon);
+    
+        this.container.appendChild(button);
+    
+        // popup
+        this.popupContainer = document.createElement('div');
+        this.popupContainer.className = 'basemap-popup hidden';
+        this.popupContainer.style.position = 'absolute';
+        this.popupContainer.style.right = '0';
+        this.popupContainer.style.top = '100%';
+        this.popupContainer.innerHTML = `
+          <div class="basemap-popup-content">
+            <h4>Layers</h4>
+            <div class="basemap-toggle-row">
+              <label>
+                <input type="checkbox" id="basemap-toggle" checked />
+                Basemap
+              </label>
+              <input type="range" id="basemap-opacity" min="0" max="100" value="75" />
+            </div>
+            <div class="basemap-toggle-row">
+              <label>
+                <input type="checkbox" id="boundary-toggle" checked />
+                Boundary
+              </label>
+              <input type="range" id="boundary-opacity" min="0" max="100" value="100" />
+            </div>
+          </div>
+        `;
+        this.container.appendChild(this.popupContainer);
+    
+        // popup on button click
+        button.addEventListener('click', () => {
+          this.popupContainer.classList.toggle('hidden');
+        });
+    
+        this.addEventListeners();
+    
+        setTimeout(() => {
+          this.setBasemapOpacity(0.75);
+          this.toggleBoundary(true);
+          if (this._map.getLayer('amsterdam-boundary')) {
+            this._map.setLayoutProperty('amsterdam-boundary', 'visibility', 'visible');
+          }
+        }, 100);
+    
+        return this.container;
+      }
+    
+      addEventListeners() {
+        const basemapToggle = this.popupContainer.querySelector('#basemap-toggle');
+        const basemapOpacitySlider = this.popupContainer.querySelector('#basemap-opacity');
+    
+        basemapOpacitySlider.addEventListener('mousemove', (e) => {
+          const opacityValue = parseInt(e.target.value, 10);
+          const rect = e.target.getBoundingClientRect();
+          this.opacityTooltip.style.display = 'block';
+          this.opacityTooltip.style.left = `${rect.left + (rect.width * (opacityValue / 100))}px`;
+          this.opacityTooltip.style.top = `${rect.top - 25}px`;
+          this.opacityTooltip.textContent = `Opacity: ${opacityValue}%`;
+        });
+    
+        basemapOpacitySlider.addEventListener('input', (e) => {
+          const opacityValue = parseInt(e.target.value, 10);
+          this.setBasemapOpacity(opacityValue / 100);
+          const rect = e.target.getBoundingClientRect();
+          this.opacityTooltip.style.display = 'block';
+          this.opacityTooltip.style.left = `${rect.left + (rect.width * (opacityValue / 100))}px`;
+          this.opacityTooltip.style.top = `${rect.top - 25}px`;
+          this.opacityTooltip.textContent = `Opacity: ${opacityValue}%`;
+        });
+    
+        basemapOpacitySlider.addEventListener('mouseout', () => {
+          this.opacityTooltip.style.display = 'none';
+        });
+    
+        basemapToggle.addEventListener('change', (e) => {
+          this.toggleBasemap(e.target.checked);
+        });
+    
+        const boundaryToggle = this.popupContainer.querySelector('#boundary-toggle');
+        const boundaryOpacitySlider = this.popupContainer.querySelector('#boundary-opacity');
+    
+        boundaryToggle.addEventListener('change', (e) => {
+          this.toggleBoundary(e.target.checked);
+        });
+    
+        boundaryOpacitySlider.addEventListener('mousemove', (e) => {
+          const opacityValue = parseInt(e.target.value, 10);
+          const rect = e.target.getBoundingClientRect();
+          this.opacityTooltip.style.display = 'block';
+          this.opacityTooltip.style.left = `${rect.left + (rect.width * (opacityValue / 100))}px`;
+          this.opacityTooltip.style.top = `${rect.top - 25}px`;
+          this.opacityTooltip.textContent = `Opacity: ${opacityValue}%`;
+        });
+    
+        boundaryOpacitySlider.addEventListener('input', (e) => {
+          const opacityValue = parseInt(e.target.value, 10);
+          this.setBoundaryOpacity(opacityValue / 100);
+          const rect = e.target.getBoundingClientRect();
+          this.opacityTooltip.style.display = 'block';
+          this.opacityTooltip.style.left = `${rect.left + (rect.width * (opacityValue / 100))}px`;
+          this.opacityTooltip.style.top = `${rect.top - 25}px`;
+          this.opacityTooltip.textContent = `Opacity: ${opacityValue}%`;
+        });
+    
+        boundaryOpacitySlider.addEventListener('mouseout', () => {
+          this.opacityTooltip.style.display = 'none';
+        });
+    
+        const sliders = this.popupContainer.querySelectorAll('input[type="range"]');
+        sliders.forEach(slider => {
+          slider.addEventListener('input', () => {
+            const min = parseFloat(slider.min) || 0;
+            const max = parseFloat(slider.max) || 100;
+            const val = parseFloat(slider.value);
+            const percent = ((val - min) / (max - min)) * 100;
+            slider.style.background = `linear-gradient(to right, #777 0%, #777 ${percent}%, #ccc ${percent}%, #ccc 100%)`;
+          });
+          slider.dispatchEvent(new Event('input'));
+        });
+      }
+    
+      onRemove() {
+        if (this.container.parentNode) {
+          this.container.parentNode.removeChild(this.container);
+        }
+        if (this.opacityTooltip && this.opacityTooltip.parentNode) {
+          this.opacityTooltip.parentNode.removeChild(this.opacityTooltip);
+        }
+        this._map = null;
+      }
+    
+      toggleBasemap(isVisible) {
+        if (!this._map) return;
+        const style = this._map.getStyle();
+        if (style && style.layers) {
+          style.layers.forEach((layer) => {
+            if (layer.id.includes('water') ||
+                layer.id.includes('land') ||
+                layer.id.includes('road') ||
+                layer.id.includes('background') ||
+                layer.id.includes('building') ||
+                layer.id.includes('place')) {
+              this._map.setLayoutProperty(layer.id, 'visibility', isVisible ? 'visible' : 'none');
+            }
+          });
+        }
+      }
+    
+      setBasemapOpacity(opacity) {
+        if (!this._map) return;
+        if (this._map.getLayer('background')) {
+          this._map.setPaintProperty('background', 'background-opacity', opacity);
+        }
+        const style = this._map.getStyle();
+        if (style && style.layers) {
+          style.layers.forEach((layer) => {
+            const type = layer.type;
+            if (layer.id.includes('water') ||
+                layer.id.includes('land') ||
+                layer.id.includes('road') ||
+                layer.id.includes('building') ||
+                layer.id.includes('place')) {
+              if (type === 'fill') {
+                this._map.setPaintProperty(layer.id, 'fill-opacity', opacity);
+              } else if (type === 'line') {
+                this._map.setPaintProperty(layer.id, 'line-opacity', opacity);
+              } else if (type === 'symbol') {
+                this._map.setPaintProperty(layer.id, 'text-opacity', opacity);
+                this._map.setPaintProperty(layer.id, 'icon-opacity', opacity);
+              } else if (type === 'background') {
+                this._map.setPaintProperty(layer.id, 'background-opacity', opacity);
+              }
+            }
+          });
+        }
+      }
+    
+      toggleBoundary(isVisible) {
+        if (!this._map) return;
+        if (this._map.getLayer('amsterdam-boundary')) {
+          this._map.setLayoutProperty('amsterdam-boundary', 'visibility', isVisible ? 'visible' : 'none');
+        }
+      }
+    
+      setBoundaryOpacity(opacity) {
+        if (!this._map) return;
+        if (this._map.getLayer('amsterdam-boundary')) {
+          this._map.setPaintProperty('amsterdam-boundary', 'line-opacity', opacity);
+        }
+      }
+    }
+    
+    map.on('load', () => {
+      const basemapToggleCtrl = new BasemapToggleControl();
+      map.addControl(basemapToggleCtrl, 'top-right');
+      if (map.getLayer('amsterdam-boundary')) {
+        map.setLayoutProperty('amsterdam-boundary', 'visibility', 'visible');
+      }
+      const scaleControl = document.querySelector('.mapboxgl-ctrl-bottom-left');
+  if (scaleControl) {
+    scaleControl.style.marginLeft = '320px';
+    scaleControl.style.transition = 'margin-left 0.5s ease';
+  }
+    });
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      const aboutIcon = document.getElementById('about-icon');
+      const aboutOverlay = document.getElementById('about-overlay');
+      const aboutCloseBtn = document.getElementById('about-close');
+      if (aboutIcon && aboutOverlay) {
+        aboutIcon.addEventListener('click', () => {
+          aboutOverlay.style.display = 'block';
+        });
+      }
+      if (aboutCloseBtn && aboutOverlay) {
+        aboutCloseBtn.addEventListener('click', () => {
+          aboutOverlay.style.display = 'none';
+        });
+      }
+    });
+    
+map.on('load', () => {
+  console.log("Map loaded, initializing task block handlers");
+  
+  const checkMapReady = () => {
+    if (map.isStyleLoaded() && window.mapSoundConnector) {
+      console.log("Map style loaded and connector available, setting up task blocks");
+      
+      setTimeout(() => {
+        try {
+          window.mapSoundConnector.setupTaskBlockLayers();
+          console.log("Initial task block layers setup complete");
+        } catch (error) {
+          console.error("Error during initial task block setup:", error);
+        }
+      }, 500);
+    } else {
+      console.log("Map or connector not ready yet, will retry");
+      setTimeout(checkMapReady, 200);
+    }
+  };
+  
+  checkMapReady();
+});
+
+document.getElementById('city-blocks-toggle').addEventListener('change', function() {
+  if (this.checked) {
+    console.log("City blocks layer selected, updating task blocks");
+    if (window.mapSoundConnector) {
+      setTimeout(() => {
+        window.mapSoundConnector.updateTaskBlockHighlights();
+      }, 300);
+    }
+  }
+});
+  function showAudioGuidePanel() {
+  const panel = document.getElementById('audio-guide-panel');
+  if (panel) {
+    panel.style.display = 'block';
+    setTimeout(positionGuidePanels, 10); 
+  }
+}
+
+function hideAudioGuidePanel() {
+  const panel = document.getElementById('audio-guide-panel');
+  if (panel) {
+    panel.style.display = 'none';
+    setTimeout(positionGuidePanels, 10); 
+  }
+}
+
+function showVisualGuidePanel() {
+  const panel = document.getElementById('visual-guide-panel');
+  if (panel) {
+    panel.style.display = 'block';
+    setTimeout(positionGuidePanels, 10); 
+  }
+}
+
+function hideVisualGuidePanel() {
+  const panel = document.getElementById('visual-guide-panel');
+  if (panel) {
+    panel.style.display = 'none';
+    setTimeout(positionGuidePanels, 10); 
+  }
+}
+
+function hideAllGuidePanels() {
+  const panels = [
+    'visual-guide-panel',
+    'building-age-details-panel', 
+    'building-height-details-panel', 
+    'land-use-details-panel', 
+    'street-network-details-panel'
+  ];
+  
+  panels.forEach(id => {
+    const panel = document.getElementById(id);
+    if (panel) {
+      console.log(`Hiding panel: ${id}`); 
+      panel.style.display = 'none';
+    } else {
+      console.log(`Panel not found: ${id}`); 
+    }
+  });
+}
+
+let wasVisualPanelOpen = false; 
+let wasAudioPanelOpen = false;
+let lastActiveMetricPanel = null;
+let lastActiveAudioMetricPanel = null;
+let lastActiveVisualMetricPanel = null;
+let activeStreetChordTimeouts = [];
+function isAnyVisualPanelVisible() {
+  const visualPanel = document.getElementById('visual-guide-panel');
+  const visualPanelVisible = visualPanel && window.getComputedStyle(visualPanel).display !== 'none';
+  
+  if (visualPanelVisible) {
+    return true; 
+  }
+  
+  const visualDetailPanels = [
+    'building-age-details-panel', 
+    'building-height-details-panel', 
+    'land-use-details-panel', 
+    'street-network-details-panel'
+  ];
+  
+  return visualDetailPanels.some(id => {
+    const panel = document.getElementById(id);
+    return panel && window.getComputedStyle(panel).display !== 'none';
+  });
+}
+
+function positionGuidePanels() {
+  const audioPanel = document.getElementById('audio-guide-panel');
+  const visualPanel = document.getElementById('visual-guide-panel');
+  const legend = document.getElementById('legend-container');
+  const legendToggle = document.getElementById('legend-toggle');
+  
+  if (!legend) return;
+  
+  const detailPanelIds = [
+    'building-age-details-panel',
+    'building-height-details-panel',
+    'land-use-details-panel',
+    'street-network-details-panel'
+  ];
+  
+  const audioDetailPanelIds = [
+    'audio-building-age-details-panel',
+    'audio-building-height-details-panel',
+    'audio-land-use-details-panel',
+    'audio-street-network-details-panel'
+  ];
+  
+  let activeVisualPanel = null;
+  for (const id of detailPanelIds) {
+    const panel = document.getElementById(id);
+    if (panel && window.getComputedStyle(panel).display !== 'none') {
+      activeVisualPanel = panel;
+      break;
+    }
+  }
+  
+  let activeAudioPanel = null;
+  for (const id of audioDetailPanelIds) {
+    const panel = document.getElementById(id);
+    if (panel && window.getComputedStyle(panel).display !== 'none') {
+      activeAudioPanel = panel;
+      break;
+    }
+  }
+  
+  if (!activeVisualPanel && visualPanel &&
+      window.getComputedStyle(visualPanel).display !== 'none') {
+    activeVisualPanel = visualPanel;
+  }
+  
+  if (!activeAudioPanel && audioPanel &&
+      window.getComputedStyle(audioPanel).display !== 'none') {
+    activeAudioPanel = audioPanel;
+  }
+  
+  const legendElement = document.getElementById('legend');
+  const isLegendCollapsed = legendElement && legendElement.classList.contains('collapsed');
+  
+  const gap = 22;
+  
+  const legendToggleRect = legendToggle.getBoundingClientRect();
+  
+  const rightPosition = '12px';
+  
+  const bottomBasePosition = isLegendCollapsed 
+    ? (legendToggleRect.height + gap) 
+    : (legend.offsetHeight + gap);
+  
+  if (activeVisualPanel) {
+    activeVisualPanel.style.position = 'absolute';
+    activeVisualPanel.style.margin = '0';
+    activeVisualPanel.style.padding = '12px';
+    activeVisualPanel.style.bottom = '';
+    activeVisualPanel.style.top = '';
+    
+    legend.parentNode.insertBefore(activeVisualPanel, legend);
+    activeVisualPanel.style.right = rightPosition;
+    activeVisualPanel.style.bottom = bottomBasePosition + 'px';
+    activeVisualPanel.style.zIndex = '10000';
+    
+    if (activeAudioPanel) {
+      activeAudioPanel.style.position = 'absolute';
+      activeAudioPanel.style.margin = '0';
+      activeAudioPanel.style.padding = '12px';
+      activeAudioPanel.style.bottom = '';
+      activeAudioPanel.style.top = '';
+      
+      legend.parentNode.insertBefore(activeAudioPanel, activeVisualPanel);
+      activeAudioPanel.style.right = rightPosition;
+      activeAudioPanel.style.bottom = (bottomBasePosition + activeVisualPanel.offsetHeight + 5) + 'px';
+      activeAudioPanel.style.zIndex = '10001';
+    }
+  } 
+  else if (activeAudioPanel) {
+    activeAudioPanel.style.position = 'absolute';
+    activeAudioPanel.style.margin = '0';
+    activeAudioPanel.style.padding = '12px';
+    activeAudioPanel.style.bottom = '';
+    activeAudioPanel.style.top = '';
+    
+    legend.parentNode.insertBefore(activeAudioPanel, legend);
+    activeAudioPanel.style.right = rightPosition;
+    activeAudioPanel.style.bottom = bottomBasePosition + 'px';
+    activeAudioPanel.style.zIndex = '10001';
+  }
+}
+function updatePanelsVisibilityForLayer() {
+  const cityBlocksActive = document.getElementById('city-blocks-toggle') && 
+                          document.getElementById('city-blocks-toggle').checked;
+
+  const audioPanel = document.getElementById('audio-guide-panel');
+  const visualPanel = document.getElementById('visual-guide-panel');
+  console.log("PANEL STATE CHECK:", {
+    audioPanelDisplay: audioPanel ? window.getComputedStyle(audioPanel).display : 'not found',
+    visualPanelDisplay: visualPanel ? window.getComputedStyle(visualPanel).display : 'not found'
+  });
+  
+  const audioIcon = document.getElementById('legend-audio-icon');
+  const visualIcon = document.getElementById('legend-visual-icon');
+  
+  if (!cityBlocksActive) {
+    wasVisualPanelOpen = visualPanel && window.getComputedStyle(visualPanel).display === 'block';
+    
+    wasAudioPanelOpen = audioPanel && window.getComputedStyle(audioPanel).display === 'block';
+    
+    console.log("LEAVING CITY BLOCKS - Saved panel states:", {
+      wasAudioPanelOpen,
+      wasVisualPanelOpen,
+      visualPanelDisplay: visualPanel ? window.getComputedStyle(visualPanel).display : 'not found'
+    });
+    
+    if (!wasAudioPanelOpen) {
+      const audioDetailPanels = [
+        'audio-building-age-details-panel',
+        'audio-building-height-details-panel',
+        'audio-land-use-details-panel',
+        'audio-street-network-details-panel'
+      ];
+      
+      wasAudioPanelOpen = audioDetailPanels.some(id => {
+        const panel = document.getElementById(id);
+        return panel && window.getComputedStyle(panel).display === 'block';
+      });
+    }
+    
+    if (!wasVisualPanelOpen) {
+      const visualDetailPanels = [
+        'building-age-details-panel',
+        'building-height-details-panel',
+        'land-use-details-panel',
+        'street-network-details-panel'
+      ];
+      
+      wasVisualPanelOpen = visualDetailPanels.some(id => {
+        const panel = document.getElementById(id);
+        return panel && window.getComputedStyle(panel).display === 'block';
+      });
+    }
+    
+    hideAllGuidePanels();
+    
+    if (audioIcon) audioIcon.src = 'icon/guide_grey.png';
+    if (visualIcon) visualIcon.src = 'icon/guide_grey.png';
+  } 
+  else {
+    console.log("RETURNING TO CITY BLOCKS - Using saved states:", {
+      wasAudioPanelOpen,
+      wasVisualPanelOpen
+    });
+    
+    if (wasAudioPanelOpen) {
+      if (audioPanel) {
+        console.log("Setting audio panel display to 'block'");
+        audioPanel.style.display = 'block';
+      }
+      if (audioIcon) audioIcon.src = 'icon/guide_color.png';
+      
+      const audioDetailPanels = [
+        'audio-building-age-details-panel',
+        'audio-building-height-details-panel',
+        'audio-land-use-details-panel',
+        'audio-street-network-details-panel'
+      ];
+      
+      audioDetailPanels.forEach(id => {
+        const panel = document.getElementById(id);
+        if (panel) panel.style.display = 'none';
+      });
+    }
+    
+    if (wasVisualPanelOpen) {
+      if (visualPanel) {
+        console.log("Setting visual panel display to 'block'");
+        visualPanel.style.display = 'block';
+      }
+      if (visualIcon) visualIcon.src = 'icon/guide_color.png';
+      
+      const visualDetailPanels = [
+        'building-age-details-panel',
+        'building-height-details-panel',
+        'land-use-details-panel',
+        'street-network-details-panel'
+      ];
+      
+      visualDetailPanels.forEach(id => {
+        const panel = document.getElementById(id);
+        if (panel) panel.style.display = 'none';
+      });
+    }
+    
+    positionGuidePanels();
+  }
+}
+// function to hide all panels
+function hideAllGuidePanels(type = 'all') {
+  if (type === 'all' || type === 'visual') {
+    const visualPanels = [
+      'visual-guide-panel',
+      'building-age-details-panel', 
+      'building-height-details-panel', 
+      'land-use-details-panel', 
+      'street-network-details-panel'
+    ];
+    
+    visualPanels.forEach(id => {
+      const panel = document.getElementById(id);
+      if (panel) {
+        panel.style.display = 'none';
+      }
+    });
+  }
+  
+  if (type === 'all' || type === 'audio') {
+    const audioPanels = [
+      'audio-guide-panel',
+      'audio-building-age-details-panel',
+      'audio-building-height-details-panel',
+      'audio-land-use-details-panel',
+      'audio-street-network-details-panel'
+    ];
+    
+    audioPanels.forEach(id => {
+      const panel = document.getElementById(id);
+      if (panel) {
+        panel.style.display = 'none';
+      }
+    });
+  }
+}
+
+  // Exclusive radio group functionality for layer selection
+  document.querySelectorAll('input[name="layer"]').forEach(function(radio) {
+  radio.addEventListener('change', function() {
+    const metricsGroup = document.getElementById('metrics-controls');
+    const classifiedGroup = document.getElementById('classified-controls');
+    if (metricsGroup.contains(this)) {
+      document.getElementById('metrics-header').style.fontWeight = 'bold';
+      document.getElementById('classified-header').style.fontWeight = 'normal';
+    } else if (classifiedGroup.contains(this)) {
+      document.getElementById('classified-header').style.fontWeight = 'bold';
+      document.getElementById('metrics-header').style.fontWeight = 'normal';
+    }
+    hideAllLayers();
+    toggleLayer(this.value, true);
+    console.log('Selected layer:', this.value);
+    createLegend();
+    if (this.value !== 'city-blocks') {
+  hideVisualGuidePanel();
+}
+  });
+});
+document.getElementById('guide-icon').addEventListener('click', function() {
+  const cityBlocksRadio = document.getElementById('city-blocks-toggle');
+  if (cityBlocksRadio && cityBlocksRadio.checked) {
+    const panel = document.getElementById('visual-guide-panel');
+    panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+  } else {
+    hideVisualGuidePanel();
+    alert("The Visual Guide is available only when the City Blocks layer is selected.");
+  }
+});
+  </script>
+  
+  <script src="sonificationUtils.js" type="module"></script>
+  <script src="sonification.js" type="module"></script>
+  <script src="map-sound-connector.js" type="module"></script>
+  
+  <!-- Audio loading status indicator -->
+  <div id="audio-status" style="position: absolute; top: 70px; right: 20px; background-color: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 4px; display: none; z-index: 1000;">
+    Loading audio samples...
+  </div>
+  <script type="module">
+    import { initSoundConnector } from './map-sound-connector.js';
+    window.addEventListener('load', () => {
+      initSoundConnector();
+    });
+  </script>
+  
+  <script>
+document.addEventListener("DOMContentLoaded", () => {
+  function drawShapes() {
+  const connector = window.mapSoundConnector;
+  if (!connector) {
+    console.warn("mapSoundConnector not defined yet. Retrying...");
+    setTimeout(drawShapes, 300);
+    return;
+  }
+
+  // Rectangle
+  const rectContainer = document.getElementById('rect-icon');
+  if (rectContainer) {
+    rectContainer.innerHTML = '';
+    const svgRect = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgRect.setAttribute('width', '21');
+    svgRect.setAttribute('height', '21');
+    svgRect.setAttribute('viewBox', '0 0 100 100');
+    connector.drawRectOutline(svgRect, 10, 80, 4.8);
+    rectContainer.appendChild(svgRect);
+  }
+
+  // Circle with dot 
+  const circleContainer = document.getElementById('circle-icon');
+  if (circleContainer) {
+    circleContainer.innerHTML = '';
+    const svgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgCircle.setAttribute('width', '21');
+    svgCircle.setAttribute('height', '21');
+    svgCircle.setAttribute('viewBox', '0 0 100 100');
+    
+    // simple circle 
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '50');
+    circle.setAttribute('cy', '50');
+    circle.setAttribute('r', '45');
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', '#000');
+    circle.setAttribute('stroke-width', '4.2');
+    svgCircle.appendChild(circle);
+    
+    circleContainer.appendChild(svgCircle);
+  }
+  // Parallelogram
+  const paraContainer = document.getElementById('para-icon');
+  if (paraContainer) {
+    paraContainer.innerHTML = '';
+    const svgPara = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgPara.setAttribute('width', '20.5');
+    svgPara.setAttribute('height', '20.5');
+    svgPara.setAttribute('viewBox', '0 0 100 100');
+    connector.drawParaOutline(svgPara, 10, 80, 4.2);
+    paraContainer.appendChild(svgPara);
+  }
+  
+  // Triangle 
+  const triContainer = document.getElementById('tri-icon');
+  triContainer.setAttribute('id', 'tri-icon-container');
+if (triContainer) {
+  triContainer.innerHTML = '';
+  const svgTri = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svgTri.setAttribute('width', '24');
+  svgTri.setAttribute('height', '24');
+  svgTri.setAttribute('viewBox', '0 0 100 100');
+
+  const sideLength = 70;
+  const height = (Math.sqrt(3) / 2) * sideLength;
+  const centerX = 50;
+  const centerY = 50;
+  const topY = centerY - (height / 2);
+  const bottomY = centerY + (height / 2);
+  const leftX = centerX - (sideLength / 2);
+  const rightX = centerX + (sideLength / 2);
+  
+  const triangle = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  triangle.setAttribute('d', `M ${centerX},${topY} L ${rightX},${bottomY} L ${leftX},${bottomY} Z`);
+  triangle.setAttribute('fill', 'none');
+  triangle.setAttribute('stroke', '#000');
+  triangle.setAttribute('stroke-width', '3.3');
+  svgTri.appendChild(triangle);
+  
+  triContainer.appendChild(svgTri);
+  }
+}
+  
+  drawShapes();
+});
+  </script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log("Setting up More button event handlers...");
+    
+  const audioBuildingAgeMore = document.getElementById('audio-building-age-more');
+  if (audioBuildingAgeMore) {
+    audioBuildingAgeMore.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Audio Building Age More button clicked');
+      showMoreAudioDetails('building-age');
+    });
+  }
+  
+  const audioBuildingHeightMore = document.getElementById('audio-building-height-more');
+  if (audioBuildingHeightMore) {
+    audioBuildingHeightMore.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Audio Building Height More button clicked');
+      showMoreAudioDetails('building-height');
+    });
+  }
+  
+  const audioLandUseMore = document.getElementById('audio-land-use-more');
+  if (audioLandUseMore) {
+    audioLandUseMore.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Audio Land Use More button clicked');
+      showMoreAudioDetails('land-use');
+    });
+  }
+  
+  const audioStreetNetworkMore = document.getElementById('audio-street-network-more');
+  if (audioStreetNetworkMore) {
+    audioStreetNetworkMore.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Audio Street Network More button clicked');
+      showMoreAudioDetails('street-network');
+    });
+  }
+
+    // Building Age
+    const buildingAgeMore = document.getElementById('building-age-more');
+    if (buildingAgeMore) {
+      buildingAgeMore.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Building Age More button clicked');
+        showMoreDetails('building-age');
+      });
+    }
+    
+    // Building Height
+    const buildingHeightMore = document.getElementById('building-height-more');
+    if (buildingHeightMore) {
+      buildingHeightMore.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Building Height More button clicked');
+        showMoreDetails('building-height');
+      });
+    }
+    
+    // Land Use
+    const landUseMore = document.getElementById('land-use-more');
+    if (landUseMore) {
+      landUseMore.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Land Use More button clicked');
+        showMoreDetails('land-use');
+      });
+    }
+    
+    // Street Pattern
+    const streetNetworkMore = document.getElementById('street-network-more');
+    if (streetNetworkMore) {
+      streetNetworkMore.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Street Network More button clicked');
+        showMoreDetails('street-network');
+      });
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+    const checkMapSoundConnector = setInterval(function() {
+      if (window.mapSoundConnector) {
+        clearInterval(checkMapSoundConnector);
+        window.mapSoundConnector.setupVisualMetricListeners();
+      }
+    }, 500);
+  });
+
+    const styleElement = document.createElement('style');
+styleElement.textContent = `
+#audio-guide-panel {
+  position: absolute;
+  right: 12px;
+  z-index: 10001;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  padding: 12px;
+  width: 300px;
+  max-width: 300px;
+}
+
+#audio-guide-panel .visual-guide-title {
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0 0 16px 0;
+  border-bottom: 1px solid #999;
+  padding-bottom: 8px;
+}
+
+#audio-guide-panel .metric-block,
+#audio-building-age-details-panel .metric-block,
+#audio-building-height-details-panel .metric-block,
+#audio-land-use-details-panel .metric-block,
+#audio-street-network-details-panel .metric-block {
+  margin-bottom: 5px;
+}
+`;
+document.head.appendChild(styleElement);
+
+    document.querySelectorAll('input[name="layer"]').forEach(radio => {
+  radio.addEventListener('change', updatePanelsVisibilityForLayer);
+});
+
+const legendToggle = document.getElementById('legend-toggle');
+if (legendToggle) {
+  legendToggle.addEventListener('click', () => {
+    setTimeout(positionGuidePanels, 310);
+  });
+}
+
+updatePanelsVisibilityForLayer();
+window.addEventListener('resize', positionGuidePanels);
+setTimeout(positionGuidePanels, 500);
+  });
+
+function playInstrumentSample(instrument) {
+  console.log(`Playing sample for instrument: ${instrument}`);
+  if (window.mapSoundConnector && window.mapSoundConnector.sonificationEngine) {
+    window.mapSoundConnector.sonificationEngine.playSample(instrument, 'C4');
+  } else {
+    console.warn('SonificationEngine not available');
+  }
+}
+
+// Global variable for street chord timeouts
+function playTempoExample(interval) {
+  if (window.mapSoundConnector && window.mapSoundConnector.sonificationEngine) {
+    const sonificationEngine = window.mapSoundConnector.sonificationEngine;
+    
+    const bpm = Math.round(60 / interval);
+    console.log(`Playing tempo example at ${bpm} BPM (${interval}s interval)`);
+    
+    const chord = ["C4", "C4", "C4", "C4"];
+    
+    const now = Tone.now();
+    
+    const noteDuration = Math.max(0.1, interval * 0.8);
+    
+    chord.forEach((note, index) => {
+      sonificationEngine.synths.melodic.triggerAttackRelease(
+        note,
+        noteDuration + "s",
+        now + (index * interval),
+        0.8
+      );
+    });
+  } else {
+    console.warn('SonificationEngine not available');
+  }
+}
+
+
+function playAgeTempoExample(ageClass) {
+  if (window.mapSoundConnector && window.mapSoundConnector.sonificationEngine) {
+    const sonificationEngine = window.mapSoundConnector.sonificationEngine;
+    
+    const chord = ["C4", "C4", "C4", "C4"];
+    
+    console.log(`Playing tempo example for age class ${ageClass}`);
+    
+    const now = Tone.now();
+    const fixedVolume = 0.8;
+    
+    const arpIntervals = [
+      0.214,  
+      0.316, 
+      0.5,    
+      0.75,   
+      1.2     
+    ];
+    
+    const interval = arpIntervals[ageClass] || 0.5; 
+    
+    const bpm = Math.round(60 / interval);
+    console.log(`Using interval ${interval}s (${bpm} BPM) for age class ${ageClass}`);
+    
+    chord.forEach((note, index) => {
+      sonificationEngine.synths.melodic.triggerAttackRelease(
+        note,
+        (interval * 0.75) + "s", 
+        now + (index * interval),
+        fixedVolume
+      );
+    });
+  } else {
+    console.warn('SonificationEngine not available');
+  }
+}
+
+
+function playHeightLoudnessExample(heightClass) {
+  if (window.mapSoundConnector && window.mapSoundConnector.sonificationEngine) {
+    const sonificationEngine = window.mapSoundConnector.sonificationEngine;
+    
+    const heightSettings = [
+      { octaveShift: -1, volume: 0.3 }, 
+      { octaveShift: -1, volume: 0.9 },  
+      { octaveShift: 0, volume: 0.9 },  
+      { octaveShift: 0, volume: 2.2 },  
+      { octaveShift: 1, volume: 3.0 }   
+    ];
+    
+    const settings = heightSettings[heightClass] || { octaveShift: 0, volume: 0.9 };
+    
+    const baseChord = ["C4", "C4", "C4", "C4"];
+    
+    const chord = baseChord.map(note => {
+      const noteRegex = /([A-G]#?)(\d+)/;
+      const match = note.match(noteRegex);
+      
+      if (match) {
+        const noteLetter = match[1];  
+        const currentOctave = parseInt(match[2]);  
+        const newOctave = currentOctave + settings.octaveShift;
+        return `${noteLetter}${newOctave}`;
+      }
+      return note;
+    });
+    
+    console.log(`Playing height class ${heightClass}: octave shift ${settings.octaveShift}, volume ${settings.volume}`);
+    
+    if (!sonificationEngine.limiter) {
+      sonificationEngine.limiter = new Tone.Limiter(-1).toDestination();
+      
+      if (sonificationEngine.synths && sonificationEngine.synths.melodic) {
+        sonificationEngine.synths.melodic.disconnect();
+        sonificationEngine.synths.melodic.connect(sonificationEngine.limiter);
+      }
+    }
+    
+    const now = Tone.now();
+    const interval = 0.5;  
+    
+    chord.forEach((note, index) => {
+      sonificationEngine.synths.melodic.triggerAttackRelease(
+        note,
+        "0.3s",
+        now + (index * interval),
+        settings.volume
+      );
+    });
+  } else {
+    console.warn('SonificationEngine not available');
+  }
+}
+
+function playInstrumentSound(instrument) {
+  console.log(`Playing sound for ${instrument}`);
+  
+  if (window.mapSoundConnector && window.mapSoundConnector.sonificationEngine) {
+    if (instrument === 'melodic') {
+      window.mapSoundConnector.sonificationEngine.synths.melodic.triggerAttackRelease("C4", "0.8");
+    } else {
+      window.mapSoundConnector.sonificationEngine.playSample(instrument, 'C4');
+    }
+  } else {
+    console.warn('SonificationEngine not available');
+  }
+}
+
+
+function playStreetChord(streetType) {
+  if (window.mapSoundConnector && window.mapSoundConnector.sonificationEngine) {
+    const sonificationEngine = window.mapSoundConnector.sonificationEngine;
+    
+
+    activeStreetChordTimeouts.forEach(timeout => clearTimeout(timeout));
+    activeStreetChordTimeouts = [];
+    
+
+    if (sonificationEngine.synths.melodic && typeof sonificationEngine.synths.melodic.triggerRelease === 'function') {
+      sonificationEngine.synths.melodic.triggerRelease();
+    }
+    
+
+    const chord = sonificationEngine.streetChordDesigns[streetType] || ["C4", "E4", "G4", "D5"];
+    
+    console.log(`Playing street chord for ${streetType}: ${chord.join(", ")}`);
+    
+    const fixedInterval = 0.35;
+    const fixedVolume = 0.9;
+    
+
+    chord.forEach((note, index) => {
+      const timeout = setTimeout(() => {
+        sonificationEngine.synths.melodic.triggerAttackRelease(
+          note,
+          "0.3s",
+          undefined, 
+          fixedVolume
+        );
+      }, index * fixedInterval * 1000); 
+      
+
+      activeStreetChordTimeouts.push(timeout);
+    });
+  } else {
+    console.warn('SonificationEngine not available');
+  }
+}
+
+//  ALL EVENT LISTENERS
+document.addEventListener('DOMContentLoaded', function() {
+  
+  function setupTempoBpmElements() {
+    const tempoBpmElements = document.querySelectorAll('.tempo-bpm');
+    if (tempoBpmElements.length === 0) {
+      console.warn('No .tempo-bpm elements found. Will retry in 500ms.');
+      setTimeout(setupTempoBpmElements, 500);
+      return;
+    }
+    
+    console.log(`Found ${tempoBpmElements.length} tempo BPM elements`);
+    
+    tempoBpmElements.forEach(el => {
+      el.addEventListener('mouseenter', function() {
+        const tooltip = this.querySelector('.tempo-tooltip');
+        if (tooltip) {
+          tooltip.style.visibility = 'visible';
+          tooltip.style.opacity = '1';
+        }
+      });
+      
+      el.addEventListener('mouseleave', function() {
+        const tooltip = this.querySelector('.tempo-tooltip');
+        if (tooltip) {
+          tooltip.style.visibility = 'hidden';
+          tooltip.style.opacity = '0';
+        }
+      });
+      
+      el.addEventListener('click', function() {
+        const tempo = parseFloat(this.getAttribute('data-tempo'));
+        if (!isNaN(tempo)) {
+          playTempoExample(tempo);
+          
+          const musicalTerm = this.getAttribute('data-name');
+          if (musicalTerm) {
+            console.log(`Playing ${musicalTerm} tempo (${Math.round(60/tempo)} BPM)`);
+          }
+          
+          this.style.textDecoration = 'underline';
+          setTimeout(() => {
+            this.style.textDecoration = 'none';
+          }, 1000);
+        }
+      });
+    });
+  }
+  
+  function setupBuildingHeightDynamicsClickHandlers() {
+    const dynamicsElements = document.querySelectorAll('.clickable-dynamics');
+    if (dynamicsElements.length === 0) {
+      setTimeout(setupBuildingHeightDynamicsClickHandlers, 500);
+      return;
+    }
+    
+    console.log(`Found ${dynamicsElements.length} dynamics elements to make clickable`);
+    
+    dynamicsElements.forEach(el => {
+      el.addEventListener('click', function() {
+        const heightClass = parseInt(this.getAttribute('data-height-class'));
+        if (!isNaN(heightClass)) {
+          console.log(`Clicked on height class ${heightClass} dynamics element`);
+          playHeightLoudnessExample(heightClass);
+          
+          this.style.transform = 'scale(1.2)';
+          setTimeout(() => {
+            this.style.transform = '';
+          }, 500);
+        }
+      });
+    });
+    
+    console.log('Successfully added click handlers to building height dynamics elements');
+  }
+  
+  function setupInstrumentIcons() {
+    const instrumentIcons = document.querySelectorAll('.instrument-icon');
+    if (instrumentIcons.length === 0) {
+      setTimeout(setupInstrumentIcons, 500);
+      return;
+    }
+    
+    instrumentIcons.forEach(icon => {
+      icon.addEventListener('click', function() {
+        const instrument = this.getAttribute('data-instrument');
+        playInstrumentSound(instrument);
+      });
+    });
+    console.log('Added click listeners to instrument icons');
+  }
+  
+  function setupStreetChordButtons() {
+    const playButtons = document.querySelectorAll('.street-chord-item .play-chord-btn');
+    if (playButtons.length === 0) {
+      setTimeout(setupStreetChordButtons, 500);
+      return;
+    }
+    
+    playButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        const streetType = this.parentElement.getAttribute('data-street-type');
+        playStreetChord(streetType);
+      });
+    });
+    console.log('Added click listeners to street chord play buttons');
+  }
+  
+  function setupStreetTypeImages() {
+    const streetTypeImages = document.querySelectorAll('.street-type-image');
+    if (streetTypeImages.length === 0) {
+      setTimeout(setupStreetTypeImages, 500);
+      return;
+    }
+    
+    streetTypeImages.forEach(image => {
+      image.addEventListener('click', function() {
+        const streetType = this.parentElement.getAttribute('data-street-type');
+        
+        playStreetChord(streetType);
+        
+        this.style.transform = 'scale(1.2)';
+        
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 500);
+      });
+    });
+    console.log('Added click listeners to street type images');
+  }
+  
+  function setupAgeTempoDemoHandlers() {
+    const ageTempoDemos = document.querySelectorAll('.age-tempo-item');
+    if (ageTempoDemos.length === 0) {
+      return; 
+    }
+    
+    ageTempoDemos.forEach(item => {
+      const ageClass = parseInt(item.getAttribute('data-age-class'), 10);
+      const bpmElement = item.querySelector('.tempo-bpm');
+      
+      if (bpmElement) {
+        bpmElement.addEventListener('click', function() {
+          playAgeTempoExample(ageClass);
+          
+          this.style.textDecoration = 'underline';
+          setTimeout(() => {
+            this.style.textDecoration = 'none';
+          }, 1000);
+        });
+      }
+    });
+    
+    console.log('Age tempo demo click handlers have been set up');
+  }
+  
+  console.log('Setting up all event handlers...');
+  setupTempoBpmElements();
+  setupBuildingHeightDynamicsClickHandlers();  
+  setupInstrumentIcons();
+  setupStreetChordButtons();
+  setupStreetTypeImages();
+  setupAgeTempoDemoHandlers();
+});
+
+</script> 
+</body>
+</html>
