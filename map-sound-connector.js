@@ -69,7 +69,6 @@ class MapSoundConnector {
       'Nature & Green Spaces': '#4C9F70',
       'Residential': '#FFEC8B',
       'Water Bodies': '#4A90E2',
-      'Others': '#B0B0B0'
     };
     
     // Street definitions
