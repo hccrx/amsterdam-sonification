@@ -188,119 +188,241 @@ export class SonificationEngine {
    * @param {Object} feature GeoJSON feature
    * @returns {string} The layer ID that was sonified
    */
-  sonifyFeature(layerId, feature) {
-    if (!this.active || !this.initialized) return layerId;
-    const props = feature.properties || {};
-    
-    switch (layerId) {
-      case 'building-height':
-        this.sonifyBuildingHeight(props);
-        break;
-      case 'building-age':
-        this.sonifyBuildingAge(props);
-        break;
-      case 'city-blocks':
-        this.sonifyCityBlocks(props);
-        break;
-      case 'clusters':
-      case 'clusters-labeled':
-        this.sonifyClustersChords(props);
-        break;
-      case 'landuse':
-        this.sonifyLandUse(props);
-        break;
-      case 'street':
-        this.sonifyStreet(props);
-        break;
-      case 'amsterdam-boundary':
-        this.sonifyBoundary(props);
-        break;
-      default:
-        console.log(`No specialized sonification for ${layerId}`);
-        break;
-    }
-    return layerId;
+sonifyFeature(layerId, feature) {
+  if (!this.active || !this.initialized) return layerId;
+  const props = feature.properties || {};
+  
+  switch (layerId) {
+    case 'building-height':
+      this.sonifyBuildingHeight(props);
+      break;
+    case 'building-height-block':
+      this.sonifyBuildingHeightBlock(props);
+      break;
+    case 'building-age':
+      this.sonifyBuildingAge(props);
+      break;
+    case 'building-age-block':
+      this.sonifyBuildingAgeBlock(props);
+      break;
+    case 'landuse':
+      this.sonifyLandUse(props);
+      break;
+    case 'landuse-block':
+      this.sonifyLandUseBlock(props);
+      break;
+    case 'street':
+      this.sonifyStreet(props);
+      break;
+    case 'street-block':
+      this.sonifyStreetBlock(props);
+      break;
+    case 'city-blocks':
+      this.sonifyCityBlocks(props);
+      break;
+    case 'clusters':
+    case 'clusters-labeled': 
+      this.sonifyClustersChords(props);
+      break;
+    case 'amsterdam-boundary':
+      this.sonifyBoundary(props);
+      break;
+    default:
+      console.log(`No specialized sonification for ${layerId}`);
+      break;
   }
+  return layerId;
+}
 
-  /**
-   * Sonification for building height.
-   * @param {Object} properties Feature properties
-   */
-  sonifyBuildingHeight(properties) {
-    if (properties.id && properties.id === this.lastBuildingId) return;
-    if (properties.id) this.lastBuildingId = properties.id;
-    
-    const height = parseFloat(properties.height) || 10;
-    // Use the mapping functions to get pitch and volume
-    const note = this.mappings['building-height'].heightToNote(height);
-    const volume = this.mappings['building-height'].heightToVolume(height);
-    
-    // Add panning based on height
-    const panningY = getPanningFromHeight(height);
-    this.panner.positionY.value = panningY;
-    
-    const originalVolume = this.synths.fm.volume.value;
-    this.synths.fm.volume.value = volume;
-    this.synths.fm.triggerAttackRelease(note, "8n");
-    setTimeout(() => {
-      this.synths.fm.volume.value = originalVolume;
-    }, 100);
-    console.log(`Building Height: ${height}m - Playing note ${note} at volume ${volume} with vertical panning ${panningY}`);
-  }
+/**
+ * Sonification for building height.
+ * @param {Object} properties Feature properties
+ */
+sonifyBuildingHeight(properties) {
+  if (properties.id && properties.id === this.lastBuildingId) return;
+  if (properties.id) this.lastBuildingId = properties.id;
+  
+  const height = parseFloat(properties.height) || 10;
+  
+  // Get height-based octave and volume settings
+  const { octaveShift, volume } = getHeightToOctaveAndVolume(height);
+  
+  // Always use C4 chord with height-based octave adjustment
+  const baseChord = ["C4", "C4", "C4", "C4"];
+  const adjustedChord = getHeightAdjustedChord(baseChord, height);
+  
+  // Use fixed tempo pattern (120 BPM = pattern index 2)
+  const patternIndex = 2; // 120 BPM
+  
+  console.log(`Building Height: ${height}m - Playing chord ${adjustedChord.chord.join(", ")} at volume ${adjustedChord.volume} with 120 BPM`);
+  
+  // Play the arpeggio using the melodic synthesizer
+  playArpeggio(this.synths.melodic, adjustedChord.chord, patternIndex, undefined, adjustedChord.volume);
+}
 
-  /**
-   * Sonification for building age.
-   * @param {Object} properties Feature properties
-   */
-  sonifyBuildingAge(properties) {
-    const age = parseFloat(properties.age) || 50;
-    
-    // Use the age classes to determine pitch
-    let pitch = "C4";
-    for (const a of this.ageClasses) {
-      if (age >= a.min && age < a.max) {
-        pitch = a.min === 0 ? "C4" : 
-               a.min === 15 ? "D4" : 
-               a.min === 35 ? "E4" :
-               a.min === 60 ? "F4" :
-               a.min === 75 ? "G4" :
-               a.min === 95 ? "A4" :
-               a.min === 125 ? "B4" : "C5";
-        break;
-      }
-    }
-    
-    this.synths.melodic.triggerAttackRelease(pitch, "8n");
-    console.log(`Building Age: ${age} years - Playing pitch ${pitch}`);
-  }
+/**
+ * Sonification for building height blocks (w_height_mean).
+ * @param {Object} properties Feature properties
+ */
+sonifyBuildingHeightBlock(properties) {
+  const blockId = `height-block-${properties.code || properties.id}`;
+  if (blockId === this.lastBuildingId) return;
+  this.lastBuildingId = blockId;
+  
+  const height = parseFloat(properties.w_height_mean) || 10;
+  
+  console.log(`sonifyBuildingHeightBlock called with height: ${height}`); // DEBUG LINE
+  
+  // Get height-based octave and volume settings
+  const { octaveShift, volume } = getHeightToOctaveAndVolume(height);
+  
+  // Always use C4 chord with height-based octave adjustment
+  const baseChord = ["C4", "C4", "C4", "C4"];
+  const adjustedChord = getHeightAdjustedChord(baseChord, height);
+  
+  // Use fixed tempo pattern (120 BPM = pattern index 2)
+  const patternIndex = 2; // 120 BPM
+  
+  console.log(`Building Height Block: ${height}m (w_height_mean) - Playing chord ${adjustedChord.chord.join(", ")} at volume ${adjustedChord.volume} with 120 BPM`);
+  
+  // Play the arpeggio using the melodic synthesizer
+  playArpeggio(this.synths.melodic, adjustedChord.chord, patternIndex, undefined, adjustedChord.volume);
+}
 
-  /**
-   * Sonification for landuse.
-   * @param {Object} properties Feature properties
-   */
-  sonifyLandUse(properties) {
-    if (!this.active || !this.initialized) return;
-    if (properties.rowId && properties.rowId === this.lastLandUseRowId) return;
-    if (properties.rowId) this.lastLandUseRowId = properties.rowId;
-    const luClass = properties.new_lu_class || 'Residential';
-    console.log(`Sonifying land use: ${luClass}`);
-    const instrument = this.cityBlocksInstrument || this.landUseToInstrument[luClass] || 'piano';
-    this.playSample(instrument, 'C4');
-  }
+/**
+ * Sonification for building age.
+ * @param {Object} properties Feature properties
+ */
+sonifyBuildingAge(properties) {
+  if (properties.id && properties.id === this.lastBuildingId) return;
+  if (properties.id) this.lastBuildingId = properties.id;
+  
+  const age = parseFloat(properties.age) || 50;
+  
+  // Get the pattern index (tempo) based on age class
+  const patternIndex = getPatternIndexFromAge(age);
+  
+  // Always use C4 chord with no octave shift
+  const chord = ["C4", "C4", "C4", "C4"];
+  const volume = 0.9; // Fixed volume
+  
+  console.log(`Building Age: ${age} years - Playing C4 chord at tempo pattern ${patternIndex} with volume ${volume}`);
+  
+  // Play the arpeggio using the melodic synthesizer
+  playArpeggio(this.synths.melodic, chord, patternIndex, undefined, volume);
+}
+/**
+ * Sonification for building age blocks (w_age_mean).
+ * @param {Object} properties Feature properties
+ */
+sonifyBuildingAgeBlock(properties) {
+  // Use a different ID check for blocks
+  const blockId = `age-block-${properties.code || properties.id}`;
+  if (blockId === this.lastBuildingId) return;
+  this.lastBuildingId = blockId;
+  
+  // Use w_age_mean for block-level age data
+  const age = parseFloat(properties.w_age_mean) || 50;
+  
+  // Get the pattern index (tempo) based on age class
+  const patternIndex = getPatternIndexFromAge(age);
+  
+  // Always use C4 chord with no octave shift
+  const chord = ["C4", "C4", "C4", "C4"];
+  const volume = 0.9; // Fixed volume
+  
+  console.log(`Building Age Block: ${age} years (w_age_mean) - Playing C4 chord at tempo pattern ${patternIndex} with volume ${volume}`);
+  
+  // Play the arpeggio using the melodic synthesizer
+  playArpeggio(this.synths.melodic, chord, patternIndex, undefined, volume);
+}
 
-  /**
-   * Sonification for street network.
-   * @param {Object} properties Feature properties
-   */
-  sonifyStreet(properties) {
-    if (properties.rowId && properties.rowId === this.lastStreetRowId) return;
-    if (properties.rowId) this.lastStreetRowId = properties.rowId;
-    const streetType = properties.Type || 'Type 1-2';
-    const length = properties.length || 10;
-    const tempo = this.mappings.street.lengthToTempo(length);
-    Tone.Transport.bpm.value = tempo;
-    this.synths.membrane.triggerAttackRelease("C2", "16n");
-  } 
+/**
+ * Sonification for landuse.
+ * @param {Object} properties Feature properties
+ */
+sonifyLandUse(properties) {
+  if (!this.active || !this.initialized) return;
+  if (properties.rowId && properties.rowId === this.lastLandUseRowId) return;
+  if (properties.rowId) this.lastLandUseRowId = properties.rowId;
+  
+  const luClass = properties.new_lu_class || 'Residential';
+  console.log(`Sonifying land use: ${luClass}`);
+  const instrument = this.landUseToInstrument[luClass] || 'piano';
+  this.playSample(instrument, 'C4');
+}
+/**
+ * Sonification for landuse blocks.
+ * @param {Object} properties Feature properties
+ */
+sonifyLandUseBlock(properties) {
+  const blockId = `landuse-block-${properties.code || properties.id}`;
+  if (blockId === this.lastLandUseRowId) return;
+  this.lastLandUseRowId = blockId;
+  
+  const luClass = properties.new_lu_class || 'Residential';
+  console.log(`Sonifying land use block: ${luClass}`);
+  const instrument = this.landUseToInstrument[luClass] || 'piano';
+  this.playSample(instrument, 'C4');
+}
+
+/**
+ * Sonification for street network.
+ * @param {Object} properties Feature properties
+ */
+sonifyStreet(properties) {
+  if (properties.rowId && properties.rowId === this.lastStreetRowId) return;
+  if (properties.rowId) this.lastStreetRowId = properties.rowId;
+  
+  const streetType = properties.Type || 'Type 1-2';
+  
+  // Convert street type to key (e.g., "Type 1-2" -> "t12")
+  let streetKey = 't12'; // default
+  if (streetType.includes('1-2')) streetKey = 't12';
+  else if (streetType.includes('2-2')) streetKey = 't22';
+  else if (streetType.includes('2-3')) streetKey = 't23';
+  else if (streetType.includes('2-4')) streetKey = 't24';
+  else if (streetType.includes('3-1')) streetKey = 't31';
+  else if (streetType.includes('4-1')) streetKey = 't41';
+  else if (streetType.includes('4-2')) streetKey = 't42';
+  
+  // Get the specific chord for this street type
+  const chord = this.streetChordDesigns[streetKey] || ["C4", "E4", "G4", "C5"];
+  
+  // Use fixed tempo (120 BPM = pattern index 2) and volume
+  const patternIndex = 2; // 120 BPM
+  const volume = 0.9;
+  
+  console.log(`Street Network: ${streetType} (${streetKey}) - Playing chord ${chord.join(", ")} at 120 BPM with volume ${volume}`);
+  
+  // Play the arpeggio using the melodic synthesizer
+  playArpeggio(this.synths.melodic, chord, patternIndex, undefined, volume);
+}
+
+/**
+ * Sonification for street pattern blocks.
+ * @param {Object} properties Feature properties
+ */
+sonifyStreetBlock(properties) {
+  const blockId = `street-block-${properties.code || properties.id}`;
+  if (blockId === this.lastStreetRowId) return;
+  this.lastStreetRowId = blockId;
+  
+  // Get the dominant street type from block properties using the utility function
+  const dominantStreetKey = getDominantStreetType(properties); // Returns t12, t22, etc.
+  
+  // Get the specific chord for this street type
+  const chord = this.streetChordDesigns[dominantStreetKey] || ["C4", "E4", "G4", "C5"];
+  
+  // Use fixed tempo (120 BPM = pattern index 2) and volume
+  const patternIndex = 2; // 120 BPM
+  const volume = 0.9;
+  
+  console.log(`Street Pattern Block: ${dominantStreetKey} - Playing chord ${chord.join(", ")} at 120 BPM with volume ${volume}`);
+  
+  // Play the arpeggio using the melodic synthesizer
+  playArpeggio(this.synths.melodic, chord, patternIndex, undefined, volume);
+}
 
    /**
    * Sonification for clusters.
@@ -401,7 +523,7 @@ if (audioMetrics.buildingAge) {
   console.log(`Using age pattern index ${patternIndex} for w_age_mean = ${wAge}`);
 } else {
   // Use a fixed medium speed (index 3 = 0.5s interval) if building age is disabled
-  patternIndex = 3; // This corresponds to the 0.35s interval, closest to 0.5s
+  patternIndex = 2; // This corresponds to the 0.35s interval, closest to 0.5s
   console.log("Building Age disabled: Using fixed arpeggio speed (0.5s interval)");
 }
     

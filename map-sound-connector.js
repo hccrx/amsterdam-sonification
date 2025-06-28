@@ -12,7 +12,8 @@ import {
   getChordFromStreetType,
   getTopLandUses,
   LAND_USE_PROPERTY_MAP,
-  playHoverBipSound
+  playHoverBipSound,
+  playArpeggio
 } from "./sonificationUtils.js";
 
 // Special task blocks that should be highlighted
@@ -177,11 +178,11 @@ setupEventListeners() {
           return;
         }
 
-          const layerIds = ['clusters', 'city-blocks', 'building-height', 'building-age', 'landuse', 'street', 'amsterdam-boundary'];
-      
+          const layerIds = ['clusters', 'city-blocks', 'building-height', 'building-height-block', 'building-age', 'building-age-block', 'landuse', 'landuse-block', 'street', 'street-block', 'amsterdam-boundary'];
         for (const feat of features) {
           if (!feat.layer) continue;
           const layerId = feat.layer.id;
+              console.log(`Clicked layer: ${layerId}`);
           if (layerIds.includes(layerId) && this.map.getLayoutProperty(layerId, 'visibility') === 'visible') {
             let blockId;
             if (feat.properties && feat.properties.code) {
@@ -506,7 +507,7 @@ handleMouseMove(e) {
         this.clearBlockHighlight(); 
         return;
       }
-        const layerIds = ['clusters', 'city-blocks', 'building-height', 'building-age', 'landuse', 'street', 'amsterdam-boundary'];
+        const layerIds = ['clusters', 'city-blocks', 'building-height', 'building-height-block', 'building-age', 'building-age-block', 'landuse', 'landuse-block', 'street', 'street-block', 'amsterdam-boundary'];
         let foundFeature = false;
   
         for (const feat of features) {
@@ -1116,49 +1117,199 @@ drawCircleOutline(g, offset, size, dotPosition, strokeW = 1.5) {
     this.map.off('move', this.updateTooltipPosition.bind(this));
   }
   
-  highlightLegendItem(layerType, props) {
-    if (this.lastHighlighted) {
-      this.lastHighlighted.classList.remove('legend-highlight');
-      this.lastHighlighted = null;
+highlightLegendItem(layerType, props) {
+  if (this.lastHighlighted) {
+    this.lastHighlighted.classList.remove('legend-highlight');
+    this.lastHighlighted = null;
+  }
+  let targetElement = null;
+  
+  if (layerType === 'clusters' || layerType === 'city-blocks') {
+    if (props.Cluster !== undefined && props.Cluster !== null) {
+      targetElement = document.querySelector('#legend .legend-item[data-cluster-value="' + props.Cluster + '"]');
     }
-    let targetElement = null;
-    if (layerType === 'clusters' || layerType === 'city-blocks') {
-      if (props.Cluster !== undefined && props.Cluster !== null) {
-        targetElement = document.querySelector('#legend .legend-item[data-cluster-value="' + props.Cluster + '"]');
+  } 
+  // Building Height - both building and block layers
+  else if (layerType === 'building-height' || layerType === 'building-height-block') {
+    // Use different property based on layer type
+    const heightProp = layerType === 'building-height-block' ? 'w_height_mean' : 'height';
+    const hVal = parseFloat(props[heightProp]) || 0;
+    
+    const items = document.querySelectorAll('#legend .legend-item[data-min-val]');
+    items.forEach(item => {
+      const min = parseFloat(item.dataset.minVal);
+      const max = parseFloat(item.dataset.maxVal);
+      if (hVal >= min && hVal < max) {
+        targetElement = item;
       }
-    } else if (layerType === 'building-height') {
-      const hVal = parseFloat(props.height) || 0;
-      const items = document.querySelectorAll('#legend .legend-item[data-min-val]');
-      items.forEach(item => {
-        const min = parseFloat(item.dataset.minVal);
-        const max = parseFloat(item.dataset.maxVal);
-        if (hVal >= min && hVal < max) {
-          targetElement = item;
-        }
-      });
-    } else if (layerType === 'building-age') {
-      const ageVal = parseFloat(props.age) || 0;
-      const items = document.querySelectorAll('#legend .legend-item[data-min-val]');
-      items.forEach(item => {
-        const min = parseFloat(item.dataset.minVal);
-        const max = parseFloat(item.dataset.maxVal);
-        if (ageVal >= min && ageVal < max) {
-          targetElement = item;
-        }
-      });
-    } else if (layerType === 'landuse') {
-      const luClass = props.new_lu_class || 'Others';
-      targetElement = document.querySelector('#legend .legend-item[data-lu-class="' + luClass + '"]');
-    } else if (layerType === 'street') {
-      const streetType = props.Type || '';
-      targetElement = document.querySelector('#legend .legend-item[data-street-type="' + streetType + '"]');
+    });
+  } 
+  // Building Age - both building and block layers
+  else if (layerType === 'building-age' || layerType === 'building-age-block') {
+    // Use different property based on layer type
+    const ageProp = layerType === 'building-age-block' ? 'w_age_mean' : 'age';
+    const ageVal = parseFloat(props[ageProp]) || 0;
+    
+    const items = document.querySelectorAll('#legend .legend-item[data-min-val]');
+    items.forEach(item => {
+      const min = parseFloat(item.dataset.minVal);
+      const max = parseFloat(item.dataset.maxVal);
+      if (ageVal >= min && ageVal < max) {
+        targetElement = item;
+      }
+    });
+  } 
+  // Land Use - both parcel and block layers
+  else if (layerType === 'landuse' || layerType === 'landuse-block') {
+    const luClass = props.new_lu_class || 'Others';
+    targetElement = document.querySelector('#legend .legend-item[data-lu-class="' + luClass + '"]');
+  } 
+  // Street Pattern - both network and block layers
+  else if (layerType === 'street' || layerType === 'street-block') {
+    let streetType = '';
+    
+    if (layerType === 'street') {
+      // For network layer, use the Type property directly
+      streetType = props.Type || '';
+    } else {
+      // For block layer, determine dominant street type
+      const dominantKey = getDominantStreetType(props);
+      // Convert key back to display format
+      const keyToType = {
+        't12': 'Type 1-2',
+        't22': 'Type 2-2', 
+        't23': 'Type 2-3',
+        't24': 'Type 2-4',
+        't31': 'Type 3-1',
+        't41': 'Type 4-1',
+        't42': 'Type 4-2'
+      };
+      streetType = keyToType[dominantKey] || 'Type 1-2';
     }
-    if (targetElement) {
-      targetElement.classList.add('legend-highlight');
-      this.lastHighlighted = targetElement;
-    }
+    
+    targetElement = document.querySelector('#legend .legend-item[data-street-type="' + streetType + '"]');
   }
   
+  if (targetElement) {
+    targetElement.classList.add('legend-highlight');
+    this.lastHighlighted = targetElement;
+  }
+}
+setupLegendClickHandlers() {
+  const legend = document.getElementById('legend');
+  if (!legend) return;
+  
+  // Remove existing listeners to avoid duplicates
+  legend.removeEventListener('click', this.handleLegendClick);
+  
+  // Add click listener to the legend container
+  legend.addEventListener('click', this.handleLegendClick.bind(this));
+}
+
+handleLegendClick(event) {
+  const legendItem = event.target.closest('.legend-item');
+  if (!legendItem) return;
+  
+  // Get the currently active layer to determine what to play
+  const activeLayer = document.querySelector('input[name="layer"]:checked')?.value;
+  if (!activeLayer) return;
+  
+  console.log(`Legend item clicked for layer: ${activeLayer}`);
+  
+  // Handle different layer types
+  if (activeLayer === 'clusters') {
+    const clusterValue = legendItem.dataset.clusterValue;
+    if (clusterValue !== undefined) {
+      const mockProps = { Cluster: clusterValue };
+      this.sonificationEngine.sonifyClustersChords(mockProps, true);
+      this.showSoundIndicator('clusters');
+      console.log(`Playing cluster ${clusterValue} sound`);
+    }
+  }
+  else if (activeLayer === 'building-height' || activeLayer === 'building-height-block') {
+    const minVal = parseFloat(legendItem.dataset.minVal);
+    const maxVal = parseFloat(legendItem.dataset.maxVal);
+    if (!isNaN(minVal)) {
+      // Use middle value of the range for demonstration
+      const demoHeight = minVal + (maxVal - minVal) / 2;
+      const mockProps = activeLayer === 'building-height-block' ? 
+        { w_height_mean: demoHeight } : 
+        { height: demoHeight };
+      
+      this.sonificationEngine.sonifyFeature(activeLayer, { properties: mockProps });
+      this.showSoundIndicator(activeLayer);
+      console.log(`Playing building height ${demoHeight}m sound`);
+    }
+  }
+else if (activeLayer === 'building-age' || activeLayer === 'building-age-block') {
+  const minVal = parseFloat(legendItem.dataset.minVal);
+  const maxVal = parseFloat(legendItem.dataset.maxVal);
+  if (!isNaN(minVal)) {
+    // For 190+ class, use a high value to ensure it gets the slowest tempo
+    let demoAge;
+    if (maxVal === Infinity || minVal >= 190) {
+      demoAge = 200; // Use 200 to ensure it's in the 190+ range
+    } else {
+      demoAge = minVal + (maxVal - minVal) / 2; // Use middle value for other ranges
+    }
+    
+    const mockProps = activeLayer === 'building-age-block' ? 
+      { w_age_mean: demoAge } : 
+      { age: demoAge };
+    
+    this.sonificationEngine.sonifyFeature(activeLayer, { properties: mockProps });
+    this.showSoundIndicator(activeLayer);
+    console.log(`Playing building age ${demoAge} years sound`);
+  }
+}
+  else if (activeLayer === 'landuse' || activeLayer === 'landuse-block') {
+    const luClass = legendItem.dataset.luClass;
+    if (luClass) {
+      const mockProps = { new_lu_class: luClass };
+      this.sonificationEngine.sonifyFeature(activeLayer, { properties: mockProps });
+      this.showSoundIndicator(activeLayer);
+      console.log(`Playing land use ${luClass} sound`);
+    }
+  }
+else if (activeLayer === 'street' || activeLayer === 'street-block') {
+  const streetType = legendItem.dataset.streetType;
+  if (streetType) {
+    // Convert street type to key for direct chord access
+    let streetKey = 't12'; // default
+    if (streetType.includes('1-2')) streetKey = 't12';
+    else if (streetType.includes('2-2')) streetKey = 't22';
+    else if (streetType.includes('2-3')) streetKey = 't23';
+    else if (streetType.includes('2-4')) streetKey = 't24';
+    else if (streetType.includes('3-1')) streetKey = 't31';
+    else if (streetType.includes('4-1')) streetKey = 't41';
+    else if (streetType.includes('4-2')) streetKey = 't42';
+    
+    // Get the chord directly and play it
+    const chord = this.sonificationEngine.streetChordDesigns[streetKey] || ["C4", "E4", "G4", "C5"];
+    const patternIndex = 2; // 120 BPM
+    const volume = 0.9;
+    
+    console.log(`Playing street pattern ${streetType} (${streetKey}) chord: ${chord.join(", ")}`);
+    
+    // Import playArpeggio function if not available
+    if (typeof playArpeggio !== 'undefined') {
+      playArpeggio(this.sonificationEngine.synths.melodic, chord, patternIndex, undefined, volume);
+    } else {
+      // Fallback: play chord directly
+      this.sonificationEngine.synths.melodic.triggerAttackRelease(chord, "0.5s");
+    }
+    
+    this.showSoundIndicator(activeLayer);
+  }
+}
+  
+  // Add visual feedback
+  legendItem.style.transform = 'scale(1.1)';
+  setTimeout(() => {
+    legendItem.style.transform = '';
+  }, 200);
+}  
+
   updateTooltipPosition() {
     const tooltip = document.getElementById('map-tooltip');
     if (!tooltip || !this.tooltipFeature || tooltip.style.display === 'none') {
@@ -1409,38 +1560,45 @@ setupTaskBlockLayers() {
   
   // Sonification Methods 
   
-  sonifyFeature(layerId, feature) {
-    if (!this.active || !this.initialized) return layerId;
-    const props = feature.properties || {};
-    switch (layerId) {
-      case 'building-height':
-        this.sonifyBuildingHeight(props);
-        break;
-      case 'building-age':
-        this.sonifyBuildingAge(props);
-        break;
-      case 'city-blocks':
-        this.sonifyCityBlocks(props);
-        break;
-      case 'clusters':
-      case 'clusters-labeled': 
-        this.sonifyClustersChords(props);
-        break;
-      case 'landuse':
-        this.sonifyLandUse(props);
-        break;
-      case 'street':
-        this.sonifyStreet(props);
-        break;
-      case 'amsterdam-boundary':
-        this.sonifyBoundary(props);
-        break;
-      default:
-        console.log(`No specialized sonification for ${layerId}`);
-        break;
-    }
-    return layerId;
+sonifyFeature(layerId, feature) {
+  if (!this.active || !this.initialized) return layerId;
+  const props = feature.properties || {};
+  
+  switch (layerId) {
+    case 'building-height':
+      this.sonifyBuildingHeight(props);
+      break;
+    case 'building-height-block':
+      this.sonifyBuildingHeightBlock(props);
+      break;
+    case 'building-age':
+      this.sonifyBuildingAge(props);
+      break;
+    case 'building-age-block':
+      this.sonifyBuildingAgeBlock(props);
+      break;
+    case 'city-blocks':
+      this.sonifyCityBlocks(props);
+      break;
+    case 'clusters':
+    case 'clusters-labeled': 
+      this.sonifyClustersChords(props);
+      break;
+    case 'landuse':
+      this.sonifyLandUse(props);
+      break;
+    case 'street':
+      this.sonifyStreet(props);
+      break;
+    case 'amsterdam-boundary':
+      this.sonifyBoundary(props);
+      break;
+    default:
+      console.log(`No specialized sonification for ${layerId}`);
+      break;
   }
+  return layerId;
+}
   
   sonifyBuildingHeight(properties) {
     const height = properties.height || 10;
