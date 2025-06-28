@@ -28,16 +28,16 @@
       z-index: 0;
       background-color: #f5f5f5;
     }
-    #sidebar {
+#sidebar {
   position: absolute;
   top: 0;
   left: 0;
   width: 320px;
-  height: 100%;
+  height: 100vh;
   background-color: #333;
   color: white;
   transition: transform 0.3s ease;
-  overflow: visible;
+  overflow: hidden; /* Changed from visible to hidden */
   z-index: 10;  
   display: flex;
   flex-direction: column;
@@ -45,17 +45,51 @@
     #sidebar.collapsed {
       transform: translateX(-320px);
     }
-    #sidebar-content {
-      display: flex;
+#sidebar-content {
+  display: flex;
   flex-direction: column;
-  height: 100%;
+  height: calc(100% - 70px); /* Space for 70px footer */
   overflow: hidden;
+  padding-bottom: 0;
+}
+#logo {
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 #scrollable-content {
   flex: 1;
   overflow-y: auto;
   padding: 0;
   margin-top: 10px;
+  padding-bottom: 70px; /* Space so content doesn't hide behind footer */
+  margin-bottom: 0;
+  max-height: calc(100vh - 140px); /* Use max-height instead of height */
+}
+
+/* Custom scrollbar styling for Chrome/Safari */
+#scrollable-content::-webkit-scrollbar {
+  width: 12px;
+}
+
+#scrollable-content::-webkit-scrollbar-track {
+  background: #2a2a2a;
+  border-radius: 6px;
+}
+
+#scrollable-content::-webkit-scrollbar-thumb {
+  background: #666;
+  border-radius: 6px;
+  border: 2px solid #2a2a2a;
+}
+
+#scrollable-content::-webkit-scrollbar-thumb:hover {
+  background: #888;
+}
+
+/* Firefox scrollbar styling */
+#scrollable-content {
+  scrollbar-width: thin;
+  scrollbar-color: #666 #2a2a2a;
 }
 
     #toggle-sidebar {
@@ -371,15 +405,11 @@
   border: none;          
   border-radius: 4px;
   padding: 8px;         
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   max-height: 300px;
   overflow-y: auto;
   transition: background-color 0.2s ease, box-shadow 0.2s ease,
               max-height 0.3s ease, opacity 0.3s ease;
-    }
-    #legend:hover {
-      background-color: #f8f8f8;
-  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3);
     }
 
     #legend.collapsed {
@@ -689,15 +719,35 @@ label[for="visual-land-use"] {
   overflow: hidden;
 }
     
-    #panel-footer {
+#panel-footer {
   position: absolute;
-  bottom: 15px;
-  left: 20px;
-  z-index: 100;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #333; /* Match sidebar background */
+  padding: 15px 20px;
+  z-index: 1000;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 15px;
+  border-top: 1px solid #555; /* Add subtle separator line */
+  box-shadow: 0 -2px 4px rgba(0,0,0,0.3); /* Add shadow above */
+}
+/* Ensure the footer stays fixed and content doesn't overlap */
+#sidebar {
+  position: relative;
+}
+
+#panel-footer::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: linear-gradient(transparent, #333);
+  pointer-events: none;
 }
 
     .panel-icon {
@@ -833,6 +883,9 @@ label[for="visual-land-use"] {
   padding-bottom: 8px;
 }
 
+#about-content h2 {
+  color: #000 !important;
+}
 
 .metric-block {
   margin-bottom: 20px; 
@@ -981,7 +1034,7 @@ label[for="visual-land-use"] {
   
   #audio-land-use-details-panel .landuse-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     column-gap: 10px;
     row-gap: 15px;
   }
@@ -1530,32 +1583,43 @@ label[for="visual-land-use"] {
   width: 32px;
   filter: brightness(0.8) contrast(1.2);
 }
-#audio-street-network-details-panel h4 {
-      color: #000 !important;
-      font-size: 12px !important;
-      font-weight: 500 !important;
-      margin: 0 0 5px 0 !important;
-      visibility: visible !important;
-      display: block !important;
-    }
-    
-    #audio-street-network-details-panel .street-type-label {
-      color: #999 !important;
-      font-size: 10px !important;
-      margin-top: 2px !important;
-      display: block !important;
-      visibility: visible !important;
-    }
-    
-    #audio-street-network-details-panel .street-chord-item {
-      cursor: pointer !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-    
-    #audio-street-network-details-panel .street-chord-item:hover {
-      transform: scale(1.05) !important;
-    }
+#audio-street-network-details-panel .network-type h4 {
+  font-size: 12px;
+  margin: 0 0 2px 0 !important;
+  color: #000;
+  font-weight: 500;
+  text-align: center;
+}
+
+#audio-street-network-details-panel .network-row {
+  display: flex;
+  justify-content: space-between !important;
+  gap: 0 !important;
+  margin-bottom: 15px;
+  padding: 0 12px 0 0px !important;  /* Less padding on left (8px), keep right (15px) */
+}
+#audio-street-network-details-panel .street-type-image {
+  width: 70px;
+  height: 70px;
+  margin-bottom: -3px !important;
+}
+
+#audio-street-network-details-panel .street-type-label {
+  color: #999;
+  font-size: 10px;
+  margin-top: -1px !important;
+  text-align: center;
+}
+
+#audio-street-network-details-panel .street-chord-item {
+  cursor: pointer !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#audio-street-network-details-panel .street-chord-item:hover {
+  transform: scale(1.05) !important;
+}
 
 .visual-guide-panel,
 #audio-guide-panel,
@@ -2128,12 +2192,12 @@ function createLandUsePanel(detailsPanel) {
       text-overflow: ellipsis; 
     }
     
-    .landuse-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 5px;          
-      row-gap: -2px;     
-    }
+.landuse-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* Changed from 3 to 4 */
+  gap: 10px;
+  row-gap: 15px;
+}
     
     /* the note at the bottom */
     .landuse-note {
@@ -2351,38 +2415,52 @@ function toggleAudioDetailView(metricType, showDetails) {
 </script>
 
 <body>
-  <!-- ABOUT -->
-  <div id="about-overlay" class="hidden">
-    <div id="about-content">
-      <span id="about-close" class="about-close-btn">&times;</span>
-      <h2>About Urban Form Sonification</h2>
-      <p>Urban Form Sonification is an innovative project that transforms the visual
-         complexity of urban environments into an engaging multi-sensory experience.
-         Drawing from principles in urban planning, spatial analysis, and auditory design,
-         the project seeks to explore the intricate interplay between a city’s physical form
-         and its underlying social and economic dynamics.</p>
-      <h3>Project Overview</h3>
-      <p>The project classifies urban blocks based on four key criteria:</p>
-      <ul>
-        <li><strong>Building Age:</strong> Reflecting the historical evolution of the urban fabric.</li>
-        <li><strong>Building Height:</strong> Representing the vertical form and scale of the urban environment.</li>
-        <li><strong>Street Pattern Type:</strong> Capturing the connectivity and structural design of city streets.</li>
-        <li><strong>Land Use:</strong> Indicating the variety and intensity of functions within the city.</li>
-      </ul>
-      <h3>Sonification &amp; Visualization</h3>
-      <p>The sonification process maps these urban metrics to musical parameters, creating
-         an auditory landscape that mirrors the physical characteristics of the city:</p>
-      <ul>
-        <li><strong>Pitch:</strong> Varies according to building age.</li>
-        <li><strong>Tempo:</strong> Reflects building height.</li>
-        <li><strong>Instrumental Differentiation:</strong> Captures variations in street network types and land use.</li>
-      </ul>
-      <h3>User Interaction</h3>
-      <p>The interface provides several toggles for user control, including sound effects,
-         visual symbols, basemap options, and an Amsterdam boundary layer—allowing users to
-         explore how physical form and usage patterns shape city life.</p>
-    </div>
+<!-- ABOUT -->
+<div id="about-overlay" class="hidden">
+  <div id="about-content">
+    <span id="about-close" class="about-close-btn">&times;</span>
+    <h2>About Urban Form Sonification</h2>
+    <p>Urban Form Sonification is a web-based tool that explores Amsterdam's urban environments through both sight and sound. Urban form shapes how people experience and navigate urban spaces. However, analyzing urban form is inherently complex due to the intricate relationships between density, layout, functionality, and historical development patterns.</p>
+    
+    <h3>Why Sonification?</h3>
+    <p>This research investigates sonification and multi-sensory approaches as innovative methods for interpreting urban data. While conventional urban analysis relies heavily on visual methods, sound offers unique advantages for detecting patterns, reducing cognitive overload, and making spatial data accessible to visually impaired users.</p>
+    
+    <h3>Urban Form Metrics</h3>
+    <p>The tool analyzes Amsterdam using four key urban form metrics:</p>
+    <ul>
+      <li><strong>Building Age:</strong> Historical development patterns</li>
+      <li><strong>Building Height:</strong> Vertical density and scale</li>
+      <li><strong>Land Use:</strong> Functional diversity and zoning</li>
+      <li><strong>Street Pattern:</strong> Network connectivity and layout types</li>
+    </ul>
+    <p>These metrics are processed using Agglomerative Hierarchical Clustering (AHC) to identify distinct urban typologies across the city.</p>
+    
+    <h3>Audio-Visual Encoding</h3>
+    <p>Urban form metrics are encoded through both visual and sonic variables. The visualization approach follows Jacques Bertin's semiology of graphics, while the audio design applies John Krygier's abstract sound variables framework.</p>
+    
+    <p><strong>Visual Variables:</strong></p>
+    <ul>
+      <li>Building Age → Color Value</li>
+      <li>Building Height → Size</li>
+      <li>Land Use → Color Hue</li>
+      <li>Street Pattern → Shape + Orientation</li>
+    </ul>
+    
+    <p><strong>Audio Variables:</strong></p>
+    <ul>
+      <li>Building Age → Tempo (rate of change)</li>
+      <li>Building Height → Dynamics + Register (loudness + register)</li>
+      <li>Land Use → Instruments + sequence + dynamics (timber + order + loudness)</li>
+      <li>Street Pattern → Melody (pitch)</li>
+    </ul>
+    
+    <h3>Redundant Multi-Modal Design</h3>
+    <p>The interface implements redundant audio-visual mapping, where the same urban information is represented simultaneously through both sound and visuals. This allows users to experience data through their preferred sensory channel or combine both modalities for enhanced understanding.</p>
+    
+    <h3>About This Research</h3>
+    <p>This tool was developed as part of a Master's thesis in Geo-information Science and Earth Observation at ITC, University of Twente (2025).</p>
   </div>
+</div>
 
 <!-- Guide Panels Container -->
 <div id="guide-panels-container" style="
@@ -2461,7 +2539,7 @@ function toggleAudioDetailView(metricType, showDetails) {
         <button class="more-button" id="audio-street-network-more">
           More <span class="arrow">→</span>
         </button>
-        <span class="metric-label">Chords</span>
+        <span class="metric-label">Melody</span>
       </div>
     </div>
 
@@ -2669,84 +2747,65 @@ function toggleAudioDetailView(metricType, showDetails) {
         </button>
       </div>
       
-      <div style="display: flex; flex-direction: column; margin-top: 15px;">
-        <!-- First row: Grid and Organic -->
-        <div style="display: flex; margin-bottom: 10px;">
+      <div class="network-types">
+        <!-- Row 1: Grid (t12) | Organic (t22, t23) -->
+        <div class="network-row" style="display: flex; justify-content: space-between; margin-bottom: 15px; padding: 0 5px;">
           <!-- Grid section -->
-          <div style="flex: 1; text-align: center;">
-            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">Grid</h4>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+            <h4 style="font-size: 12px; margin: 0 0 2px 0; font-weight: 500; color: #000;">Grid</h4>
             <div class="street-chord-item" data-street-type="t12" style="display: flex; flex-direction: column; align-items: center;">
-              <img src="street/t12.png" class="street-type-image" alt="Type 1-2" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
-              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 1-2</span>
+              <img src="street/t12.png" class="street-type-image" alt="Type 1-2" style="width: 70px; height: 70px;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -1px;">Type 1-2</span>
             </div>
           </div>
           
           <!-- Organic section -->
-          <div style="flex: 1; text-align: center;">
-            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">Organic</h4>
-            <div class="street-chord-item" data-street-type="t22" style="display: flex; flex-direction: column; align-items: center;">
-              <img src="street/t22.png" class="street-type-image" alt="Type 2-2" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
-              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 2-2</span>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-left: 10px;">
+            <h4 style="font-size: 12px; margin: 0 0 2px 0; font-weight: 500; color: #000;">Organic</h4>
+            <div style="display: flex; gap: 15px;">
+              <div class="street-chord-item" data-street-type="t22" style="display: flex; flex-direction: column; align-items: center;">
+                <img src="street/t22.png" class="street-type-image" alt="Type 2-2" style="width: 70px; height: 70px;">
+                <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -1px;">Type 2-2</span>
+              </div>
+              
+              <div class="street-chord-item" data-street-type="t23" style="display: flex; flex-direction: column; align-items: center;">
+                <img src="street/t23.png" class="street-type-image" alt="Type 2-3" style="width: 70px; height: 70px;">
+                <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -1px;">Type 2-3</span>
+              </div>
+            </div>
+            
+            <!-- t24 below and centered -->
+            <div class="street-chord-item" data-street-type="t24" style="display: flex; flex-direction: column; align-items: center; margin-top: 10px;">
+              <img src="street/t24.png" class="street-type-image" alt="Type 2-4" style="width: 70px; height: 70px;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -1px;">Type 2-4</span>
             </div>
           </div>
         </div>
         
-        <!-- Second row: Deformed and Organic continued (2-3) -->
-        <div style="display: flex; margin-bottom: 10px;">
+        <!-- Row 2: Deformed (t31) | Cul-de-sac (t41, t42) -->
+        <div class="network-row" style="display: flex; justify-content: space-between; margin-bottom: 15px; padding: 0 5px;">
           <!-- Deformed section -->
-          <div style="flex: 1; text-align: center;">
-            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">Deformed</h4>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+            <h4 style="font-size: 12px; margin: 0 0 2px 0; font-weight: 500; color: #000;">Deformed</h4>
             <div class="street-chord-item" data-street-type="t31" style="display: flex; flex-direction: column; align-items: center;">
-              <img src="street/t31.png" class="street-type-image" alt="Type 3-1" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
-              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 3-1</span>
+              <img src="street/t31.png" class="street-type-image" alt="Type 3-1" style="width: 70px; height: 70px;">
+              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -1px;">Type 3-1</span>
             </div>
           </div>
           
-          <!-- Organic continued - Type 2-3 -->
-          <div style="flex: 1; text-align: center;">
-            <div class="street-chord-item" data-street-type="t23" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
-              <img src="street/t23.png" class="street-type-image" alt="Type 2-3" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
-              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 2-3</span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Third row: Cul-de-sac and Organic continued (2-4) -->
-        <div style="display: flex; margin-bottom: 10px;">
           <!-- Cul-de-sac section -->
-          <div style="flex: 1; text-align: center;">
-            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">Cul-de-sac</h4>
-            <div class="street-chord-item" data-street-type="t41" style="display: flex; flex-direction: column; align-items: center;">
-              <img src="street/t41.png" class="street-type-image" alt="Type 4-1" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
-              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 4-1</span>
-            </div>
-          </div>
-          
-          <!-- Organic continued - Type 2-4 -->
-          <div style="flex: 1; text-align: center;">
-            <div class="street-chord-item" data-street-type="t24" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
-              <img src="street/t24.png" class="street-type-image" alt="Type 2-4" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
-              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 2-4</span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Fourth row: Cul-de-sac continued (4-2) and No Pattern -->
-        <div style="display: flex;">
-          <!-- Cul-de-sac continued - Type 4-2 -->
-          <div style="flex: 1; text-align: center;">
-            <div class="street-chord-item" data-street-type="t42" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
-              <img src="street/t42.png" class="street-type-image" alt="Type 4-2" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
-              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;">Type 4-2</span>
-            </div>
-          </div>
-          
-          <!-- No Pattern section -->
-          <div style="flex: 1; text-align: center;">
-            <h4 style="font-size: 12px; margin: 0 0 5px 0; font-weight: 500; color: #000; margin-bottom: -5px !important;">No Pattern</h4>
-            <div class="street-chord-item" data-street-type="no" style="display: flex; flex-direction: column; align-items: center;">
-              <img src="street/No.png" class="street-type-image" alt="No Pattern" style="width: 60px; height: 60px; margin-bottom: -5px !important;">
-              <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -5px !important;"></span> <!-- Empty label -->
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-left: 10px;">
+            <h4 style="font-size: 12px; margin: 0 0 2px 0; font-weight: 500; color: #000;">Cul-de-sac</h4>
+            <div style="display: flex; gap: 15px;">
+              <div class="street-chord-item" data-street-type="t41" style="display: flex; flex-direction: column; align-items: center;">
+                <img src="street/t41.png" class="street-type-image" alt="Type 4-1" style="width: 70px; height: 70px;">
+                <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -1px;">Type 4-1</span>
+              </div>
+              
+              <div class="street-chord-item" data-street-type="t42" style="display: flex; flex-direction: column; align-items: center;">
+                <img src="street/t42.png" class="street-type-image" alt="Type 4-2" style="width: 70px; height: 70px;">
+                <span class="street-type-label" style="color: #999; font-size: 10px; margin-top: -1px;">Type 4-2</span>
+              </div>
             </div>
           </div>
         </div>
@@ -2754,7 +2813,13 @@ function toggleAudioDetailView(metricType, showDetails) {
       
       <!-- Footnote -->
       <div class="street-network-note" style="margin-top: 20px; font-size: 11px; color: #666; padding-top: 10px; border-top: 1px solid #eee; line-height: 1.2;">
-        <p><span style="font-size:13px;">⋆</span> All chords shown are written in the treble clef <img src="icon/treble.png" style="height: 18px; vertical-align: middle; margin-bottom: 2px;" alt="treble clef"> notation.</p>
+        <p><span style="font-size:13px;">⋆</span> All chords shown are written in the treble clef <img src="icon/treble.png" style="height: 24px; vertical-align: middle; margin-bottom: 2px;" alt="treble clef"> notation.</p>
+        <p style="margin-top: 8px;">
+          The no pattern data is:  
+          <span class="street-chord-item" data-street-type="no" style="display: inline-block; cursor: pointer; margin-left: 5px; transition: transform 0.2s ease;">
+            <img src="street/No.png" style="height: 24px; margin-left: 5px; vertical-align: middle;" alt="No Pattern">
+          </span>
+        </p>
       </div>
     </div>
 </div>
@@ -5711,6 +5776,26 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('Age tempo demo click handlers have been set up');
   }
+
+  // Add this to your DOMContentLoaded event listener or after the panel is created
+function setupNoPatternFootnoteHandler() {
+  // Wait a bit to ensure the panel is fully created
+  setTimeout(() => {
+    const noPatternElement = document.querySelector('#audio-street-network-details-panel .street-chord-item[data-street-type="no"]');
+    
+    if (noPatternElement) {
+      noPatternElement.addEventListener('click', function() {
+        console.log('Clicking no pattern in footnote');
+        playStreetChord('no'); // This should play C4-C4-C4-C4
+      });
+      console.log('No pattern footnote handler added successfully');
+    } else {
+      console.log('No pattern element not found in footnote');
+    }
+  }, 500);
+}
+
+// Call this function when the audio street network panel is shown
   
   console.log('Setting up all event handlers...');
   setupTempoBpmElements();
@@ -5719,6 +5804,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setupStreetChordButtons();
   setupStreetTypeImages();
   setupAgeTempoDemoHandlers();
+  setupNoPatternFootnoteHandler();
 });
 
 </script> 
