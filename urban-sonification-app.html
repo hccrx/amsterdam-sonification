@@ -1676,6 +1676,13 @@ label[for="visual-land-use"] {
 .legend-item:active {
   transform: scale(0.98);
 }
+
+/* Firefox audio compatibility */
+@supports (-moz-appearance: none) {
+  .play-uc01-icon {
+    image-rendering: -moz-crisp-edges;
+  }
+}
   </style>
 </head>
 <script>
@@ -2180,12 +2187,18 @@ function createLandUsePanel(detailsPanel) {
           <span class="metric-label">No Data</span>
         </div>
       </div>
-      
-      <!-- Note at the bottom -->
+
       <div class="landuse-note">
-        <p><span style="font-size:13px;">⋆</span> Each City block has maximum 3 different land use types. The color(s) of the visual symbol is divided proportionally</p>
+        <p style="margin: 0 0 8px 0; line-height: 1.4; font-size: 10px; color: #666;">
+          <span style="font-size: 13px;">⋆</span> Multiple land uses (max. 3) together represent layered visual colors with areal proportional division.
+        </p>
+        <div style="margin-bottom: 15px; font-size: 10px; display: flex; align-items: center;">
+          <div id="lu-example-uc01-detail" style="width: 28px; height: 28px; border-radius: 50%; display: inline-block; margin-right: 8px; vertical-align: middle;"></div>
+          <button id="highlight-uc01-visual" style="background: none; border: none; color: #8351e6; text-decoration: underline; cursor: pointer; font-size: 10px; padding: 0; vertical-align: middle;">Example Block</button><br>
+        </div>
       </div>
     </div>
+    
   `;
   
   const luStyle = document.createElement('style');
@@ -2280,9 +2293,74 @@ circle.setAttribute('r',  45);           // radius = half of your 90×90 box
 circle.setAttribute('fill', connector.landUseBaseColors[luType] || '#B0B0B0');
 svgRect.appendChild(circle);
 
-      container.appendChild(svgRect);
+container.appendChild(svgRect);
     }
   }
+  
+// Draw UC01 example - wait for map to be ready
+  setTimeout(() => {
+    const uc01DetailContainer = document.getElementById('lu-example-uc01-detail');
+    if (uc01DetailContainer && window.map && window.map.getSource('clusters-source')) {
+      const clustersData = window.map.getSource('clusters-source')._data;
+      const uc01Feature = clustersData.features.find(f => f.properties.code === 'UC01');
+      
+      if (uc01Feature) {
+        uc01DetailContainer.innerHTML = '';
+const svgUC01 = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+svgUC01.setAttribute('width', '28');
+svgUC01.setAttribute('height', '28');
+svgUC01.setAttribute('viewBox', '0 0 100 100');
+        
+        const props = uc01Feature.properties;
+        const landUseProps = [
+          { name: 'Residential', val: parseFloat(props.prop_residential) || 0 },
+          { name: 'Retail & Services', val: parseFloat(props.prop_retail) || 0 },
+          { name: 'Nature & Green Spaces', val: parseFloat(props.prop_nature) || 0 },
+          { name: 'Business & Industry', val: parseFloat(props.prop_business) || 0 },
+          { name: 'Center & Mixed-Use', val: parseFloat(props.prop_center) || 0 },
+          { name: 'Culture, Recreation & Sports', val: parseFloat(props.prop_culture) || 0 },
+          { name: 'Hospitality & Office', val: parseFloat(props.prop_hospitality) || 0 },
+          { name: 'Social & Community', val: parseFloat(props.prop_social) || 0 },
+          { name: 'Water Bodies', val: parseFloat(props.prop_water) || 0 },
+          { name: 'Agricultural', val: parseFloat(props.prop_agriculture) || 0 }
+        ].filter(lu => lu.val > 0).sort((a, b) => b.val - a.val);
+        
+        const total = landUseProps.reduce((sum, lu) => sum + lu.val, 0);
+          const cx = 50, cy = 50, r = 48;
+        
+        console.log('UC01 land uses:', landUseProps);
+        
+        // Draw circle slices without border
+        let angleStart = 0;
+        for (let lu of landUseProps) {
+          const frac = lu.val / total;
+          const angleSpan = frac * 2 * Math.PI;
+          const angleEnd = angleStart + angleSpan;
+          const x1 = cx + r * Math.cos(angleStart);
+          const y1 = cy + r * Math.sin(angleStart);
+          const x2 = cx + r * Math.cos(angleEnd);
+          const y2 = cy + r * Math.sin(angleEnd);
+          const largeArc = (angleSpan > Math.PI) ? 1 : 0;
+          const baseColor = connector.landUseBaseColors[lu.name] || '#B0B0B0';
+          
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('fill', baseColor);
+          path.setAttribute('d', `M ${cx},${cy} L ${x1},${y1} A ${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`);
+          svgUC01.appendChild(path);
+          angleStart = angleEnd;
+        }
+        
+        uc01DetailContainer.appendChild(svgUC01);
+        console.log('UC01 visual example created');
+        
+        const highlightBtn = document.getElementById('highlight-uc01-visual');
+if (highlightBtn) {
+  highlightBtn.addEventListener('click', highlightUC01Block);
+  console.log('UC01 visual highlight button handler added');
+}
+      }
+    }
+  }, 2000);
 }
   // draw all street network shapes in the detailed panel
   function drawAllStreetNetworkShapes() {
@@ -2539,7 +2617,10 @@ function toggleAudioDetailView(metricType, showDetails) {
         <button class="more-button" id="audio-land-use-more">
           More <span class="arrow">→</span>
         </button>
-        <span class="metric-label">Instruments</span>
+        <div style="text-align: right;">
+          <span class="metric-label">Instruments</span><br>
+          <span style="font-size: 10px; color: #999;">(Sequence + Loudness)</span>
+        </div>
       </div>
     </div>
 
@@ -2750,6 +2831,19 @@ function toggleAudioDetailView(metricType, showDetails) {
       <div class="instrument-tooltip">Synthesizer</div>
       <div class="landuse-label">No Data</div>
     </div>
+      </div>
+  <!-- Multiple Land Use Example as footnote -->
+  <div style="margin-top: 25px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 10px; color: #666;">
+    <p style="margin: 0 0 12px 0; line-height: 1.4;">
+      <span style="font-size: 13px;">⋆</span> Multiple land uses (max. 3) play together as layered instruments with time staggering (0s, 0.3s, 0.6s).
+      <span style="margin-top: 3px; display: inline-block;">Sequence shows land use dominancy order and Loudness shows areal proportion of them.</span>
+    </p>
+    <div style="margin-bottom: 5px;">
+      <img id="play-uc01-icon" src="icon/play-g.png" alt="Play" style="width: 24px; height: 24px; cursor: pointer; margin-right: 6px; vertical-align: middle;">
+      <button id="highlight-uc01-audio" style="background: none; border: none; color: #8351e6; text-decoration: underline; cursor: pointer; font-size: 10px; padding: 0; vertical-align: middle;">Example Block</button><br>
+    </div>
+  </div>
+  </div>
   </div>
 </div>
 
@@ -2920,7 +3014,7 @@ function toggleAudioDetailView(metricType, showDetails) {
     <button class="more-button" id="street-network-more">
       More <span class="arrow">→</span>
     </button>
-    <span class="metric-label">Shape</span>
+    <span class="metric-label">Shape & Orientation</span>
   </div>
 </div>
 
@@ -3232,6 +3326,7 @@ function toggleAudioDetailView(metricType, showDetails) {
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
   <script>
      // ensure Tone is ready to be used with a click event
      document.body.addEventListener('click', async () => {
@@ -5580,7 +5675,101 @@ function playHeightLoudnessExample(heightClass) {
     console.warn('SonificationEngine not available');
   }
 }
-
+function highlightUC01Block() {
+  if (window.map && window.map.getSource('clusters-source')) {
+    const clustersData = window.map.getSource('clusters-source')._data;
+    const uc01Feature = clustersData.features.find(f => f.properties.code === 'UC01');
+    
+    if (uc01Feature && window.mapSoundConnector) {
+      console.log('Highlighting UC01 block');
+      
+      // Highlight the block
+      window.mapSoundConnector.highlightBlock(uc01Feature);
+      
+      // Zoom to the block
+      const bbox = turf.bbox(uc01Feature);
+      window.map.fitBounds(bbox, {
+        padding: 100,
+        duration: 1000
+      });
+      
+      // Clear highlight after 3 seconds
+      setTimeout(() => {
+        window.mapSoundConnector.clearBlockHighlight();
+      }, 3000);
+    }
+  }
+}
+function playUC01LandUseExample() {
+  if (window.mapSoundConnector && window.mapSoundConnector.sonificationEngine) {
+    const sonificationEngine = window.mapSoundConnector.sonificationEngine;
+    
+    console.log('Playing REAL UC01 land use example');
+    
+    // Get REAL UC01 data from clusters source
+    let uc01Props = null;
+    
+    if (window.map && window.map.getSource('clusters-source')) {
+      const clustersData = window.map.getSource('clusters-source')._data;
+      const uc01Feature = clustersData.features.find(f => f.properties.code === 'UC01');
+      
+      if (uc01Feature) {
+        uc01Props = uc01Feature.properties;
+        console.log('Found real UC01 data:', uc01Props);
+      }
+    }
+    
+    // If can't get real data, use the correct UC01 composition: violin, bass, flute
+    if (!uc01Props) {
+      uc01Props = {
+        prop_center: 0.51,        // 50% - Violin (Center & Mixed-Use)
+        prop_hospitality: 0.41,   // 30% - Bass (Hospitality & Office) 
+        prop_nature: 0.08,        // 20% - Flute (Nature & Green)
+        w_height_mean: 20,        // Fixed for 0.9 volume, no octave shift
+        w_age_mean: 75            // Fixed for 120 BPM
+      };
+      console.log('Using correct UC01 composition: violin, bass, flute');
+    }
+    
+    // Force audio settings: only land use enabled
+    const originalAudioMetrics = { ...window.mapSoundConnector.audioMetrics };
+    
+    // Also temporarily enable audio checkbox
+    const audioCheckbox = document.getElementById('audio-checkbox');
+    const wasAudioEnabled = audioCheckbox ? audioCheckbox.checked : true;
+    if (audioCheckbox) audioCheckbox.checked = true;
+    
+    window.mapSoundConnector.audioMetrics = {
+      buildingAge: false,
+      buildingHeight: false,
+      landUse: true,
+      streetNetwork: false
+    };
+    
+    // Play UC01
+    sonificationEngine.sonifyCityBlocks(uc01Props);
+    
+    // Restore settings
+    setTimeout(() => {
+      window.mapSoundConnector.audioMetrics = originalAudioMetrics;
+      if (audioCheckbox) audioCheckbox.checked = wasAudioEnabled;
+    }, 100);
+    
+    // Visual feedback for the icon
+    const icon = document.getElementById('play-uc01-icon');
+    if (icon) {
+      icon.src = 'icon/play-p.png';
+      icon.style.pointerEvents = 'none';
+      
+      setTimeout(() => {
+        icon.src = 'icon/play-g.png';
+        icon.style.pointerEvents = 'auto';
+      }, 3000);
+    }
+  } else {
+    console.warn('SonificationEngine not available for UC01 example');
+  }
+}
 function playInstrumentSound(instrument) {
   console.log(`Playing sound for ${instrument}`);
   
@@ -5805,18 +5994,68 @@ function setupNoPatternFootnoteHandler() {
   }, 500);
 }
 
-// Call this function when the audio street network panel is shown
-  
-  console.log('Setting up all event handlers...');
+console.log('Setting up all event handlers...');
   setupTempoBpmElements();
   setupBuildingHeightDynamicsClickHandlers();  
   setupInstrumentIcons();
+  
+  // Setup UC01 detail button
+  setTimeout(() => {
+    const uc01PlayIcon = document.getElementById('play-uc01-icon');
+    if (uc01PlayIcon) {
+      uc01PlayIcon.addEventListener('click', function() {
+        playUC01LandUseExample();
+      });
+      console.log('UC01 play icon handler added');
+    }
+  }, 1000);
+  
+  // Setup UC01 highlight buttons
+  setTimeout(() => {
+    const highlightVisualBtn = document.getElementById('highlight-uc01-visual');
+    const highlightAudioBtn = document.getElementById('highlight-uc01-audio');
+    
+    if (highlightVisualBtn) {
+      highlightVisualBtn.addEventListener('click', highlightUC01Block);
+      console.log('UC01 visual highlight button handler added');
+    }
+    
+    if (highlightAudioBtn) {
+      highlightAudioBtn.addEventListener('click', highlightUC01Block);
+      console.log('UC01 audio highlight button handler added');
+    }
+  }, 2000);
+  
   setupStreetChordButtons();
   setupStreetTypeImages();
   setupAgeTempoDemoHandlers();
   setupNoPatternFootnoteHandler();
 });
 
+
+if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) {
+  // Force audio context resume for Firefox
+  document.addEventListener('click', function() {
+    if (window.Tone && window.Tone.context.state === 'suspended') {
+      window.Tone.context.resume().then(() => {
+        console.log('Audio context resumed for Firefox');
+      });
+    }
+  }, { once: true });
+  
+  // Additional Firefox-specific audio initialization
+  window.addEventListener('load', function() {
+    setTimeout(() => {
+      if (window.Tone && window.mapSoundConnector) {
+        window.Tone.start().then(() => {
+          console.log('Tone.js started for Firefox');
+        }).catch(err => {
+          console.error('Firefox audio start failed:', err);
+        });
+      }
+    }, 1000);
+  });
+}
 </script> 
 </body>
 </html>

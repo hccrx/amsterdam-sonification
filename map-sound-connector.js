@@ -1206,6 +1206,7 @@ setupLegendClickHandlers() {
   legend.addEventListener('click', this.handleLegendClick.bind(this));
 }
 
+// Replace your handleLegendClick method in map-sound-connector.js
 handleLegendClick(event) {
   const legendItem = event.target.closest('.legend-item');
   if (!legendItem) return;
@@ -1221,6 +1222,7 @@ handleLegendClick(event) {
     const clusterValue = legendItem.dataset.clusterValue;
     if (clusterValue !== undefined) {
       const mockProps = { Cluster: clusterValue };
+      // Use the EXACT same method as map clicks
       this.sonificationEngine.sonifyClustersChords(mockProps, true);
       this.showSoundIndicator('clusters');
       console.log(`Playing cluster ${clusterValue} sound`);
@@ -1230,85 +1232,105 @@ handleLegendClick(event) {
     const minVal = parseFloat(legendItem.dataset.minVal);
     const maxVal = parseFloat(legendItem.dataset.maxVal);
     if (!isNaN(minVal)) {
-      // Use middle value of the range for demonstration
       const demoHeight = minVal + (maxVal - minVal) / 2;
-      const mockProps = activeLayer === 'building-height-block' ? 
-        { w_height_mean: demoHeight } : 
-        { height: demoHeight };
       
+      // Create mock properties and use the EXACT same sonification method as map clicks
+      const mockProps = activeLayer === 'building-height-block' ? 
+        { w_height_mean: demoHeight, code: 'demo-' + Math.random() } : 
+        { height: demoHeight, id: 'demo-' + Math.random() };
+      
+      // RESET ID TRACKING to allow repeated clicks
+      this.sonificationEngine.lastBuildingId = null;
+      
+      // Use the exact same sonification method as map clicks
       this.sonificationEngine.sonifyFeature(activeLayer, { properties: mockProps });
       this.showSoundIndicator(activeLayer);
-      console.log(`Playing building height ${demoHeight}m sound`);
+      console.log(`Playing building height ${demoHeight}m sound using exact map sonification`);
     }
   }
-else if (activeLayer === 'building-age' || activeLayer === 'building-age-block') {
-  const minVal = parseFloat(legendItem.dataset.minVal);
-  const maxVal = parseFloat(legendItem.dataset.maxVal);
-  if (!isNaN(minVal)) {
-    // For 190+ class, use a high value to ensure it gets the slowest tempo
-    let demoAge;
-    if (maxVal === Infinity || minVal >= 190) {
-      demoAge = 200; // Use 200 to ensure it's in the 190+ range
-    } else {
-      demoAge = minVal + (maxVal - minVal) / 2; // Use middle value for other ranges
+  else if (activeLayer === 'building-age' || activeLayer === 'building-age-block') {
+    const minVal = parseFloat(legendItem.dataset.minVal);
+    const maxVal = parseFloat(legendItem.dataset.maxVal);
+    if (!isNaN(minVal)) {
+      let demoAge;
+      if (maxVal === Infinity || minVal >= 190) {
+        demoAge = 200;
+      } else {
+        demoAge = minVal + (maxVal - minVal) / 2;
+      }
+      
+      // Create mock properties and use the EXACT same sonification method as map clicks
+      const mockProps = activeLayer === 'building-age-block' ? 
+        { w_age_mean: demoAge, code: 'demo-' + Math.random() } : 
+        { age: demoAge, id: 'demo-' + Math.random() };
+      
+      // RESET ID TRACKING to allow repeated clicks
+      this.sonificationEngine.lastBuildingId = null;
+      
+      // Use the exact same sonification method as map clicks
+      this.sonificationEngine.sonifyFeature(activeLayer, { properties: mockProps });
+      this.showSoundIndicator(activeLayer);
+      console.log(`Playing building age ${demoAge} years sound using exact map sonification`);
     }
-    
-    const mockProps = activeLayer === 'building-age-block' ? 
-      { w_age_mean: demoAge } : 
-      { age: demoAge };
-    
-    this.sonificationEngine.sonifyFeature(activeLayer, { properties: mockProps });
-    this.showSoundIndicator(activeLayer);
-    console.log(`Playing building age ${demoAge} years sound`);
   }
-}
   else if (activeLayer === 'landuse' || activeLayer === 'landuse-block') {
     const luClass = legendItem.dataset.luClass;
     if (luClass) {
-      const mockProps = { new_lu_class: luClass };
+      // Create mock properties and use the EXACT same sonification method as map clicks
+      const mockProps = { new_lu_class: luClass, rowId: 'demo-' + Math.random() };
+      
+      // RESET ID TRACKING to allow repeated clicks
+      this.sonificationEngine.lastLandUseRowId = null;
+      
+      // Use the exact same sonification method as map clicks
       this.sonificationEngine.sonifyFeature(activeLayer, { properties: mockProps });
       this.showSoundIndicator(activeLayer);
-      console.log(`Playing land use ${luClass} sound`);
+      console.log(`Playing land use ${luClass} sound using exact map sonification`);
     }
   }
-else if (activeLayer === 'street' || activeLayer === 'street-block') {
-  const streetType = legendItem.dataset.streetType;
-  if (streetType) {
-    // Convert street type to key for direct chord access
-    let streetKey = 't12'; // default
-    if (streetType.includes('1-2')) streetKey = 't12';
-    else if (streetType.includes('2-2')) streetKey = 't22';
-    else if (streetType.includes('2-3')) streetKey = 't23';
-    else if (streetType.includes('2-4')) streetKey = 't24';
-    else if (streetType.includes('3-1')) streetKey = 't31';
-    else if (streetType.includes('4-1')) streetKey = 't41';
-    else if (streetType.includes('4-2')) streetKey = 't42';
-    
-    // Get the chord directly and play it
-    const chord = this.sonificationEngine.streetChordDesigns[streetKey] || ["C4", "E4", "G4", "C5"];
-    const patternIndex = 2; // 120 BPM
-    const volume = 0.9;
-    
-    console.log(`Playing street pattern ${streetType} (${streetKey}) chord: ${chord.join(", ")}`);
-    
-    // Import playArpeggio function if not available
-    if (typeof playArpeggio !== 'undefined') {
-      playArpeggio(this.sonificationEngine.synths.melodic, chord, patternIndex, undefined, volume);
-    } else {
-      // Fallback: play chord directly
-      this.sonificationEngine.synths.melodic.triggerAttackRelease(chord, "0.5s");
+  else if (activeLayer === 'street' || activeLayer === 'street-block') {
+    const streetType = legendItem.dataset.streetType;
+    if (streetType) {
+      let mockProps;
+      
+      if (activeLayer === 'street') {
+        // For street layer, use Type property
+        mockProps = { Type: streetType, rowId: 'demo-' + Math.random() };
+      } else {
+        // For street-block layer, create properties with the dominant street type
+        mockProps = { code: 'demo-' + Math.random() };
+        
+        // Set the street type properties to simulate dominance
+        const streetKey = streetType.includes('1-2') ? 't12' :
+                         streetType.includes('2-2') ? 't22' :
+                         streetType.includes('2-3') ? 't23' :
+                         streetType.includes('2-4') ? 't24' :
+                         streetType.includes('3-1') ? 't31' :
+                         streetType.includes('4-1') ? 't41' :
+                         streetType.includes('4-2') ? 't42' : 't12';
+        
+        // Set the selected street type to 1.0 and others to 0
+        ['t12', 't22', 't23', 't24', 't31', 't41', 't42'].forEach(key => {
+          mockProps[key] = key === streetKey ? 1.0 : 0.0;
+        });
+      }
+      
+      // RESET ID TRACKING to allow repeated clicks
+      this.sonificationEngine.lastStreetRowId = null;
+      
+      // Use the exact same sonification method as map clicks
+      this.sonificationEngine.sonifyFeature(activeLayer, { properties: mockProps });
+      this.showSoundIndicator(activeLayer);
+      console.log(`Playing street pattern ${streetType} sound using exact map sonification`);
     }
-    
-    this.showSoundIndicator(activeLayer);
   }
-}
   
   // Add visual feedback
   legendItem.style.transform = 'scale(1.1)';
   setTimeout(() => {
     legendItem.style.transform = '';
   }, 200);
-}  
+}
 
   updateTooltipPosition() {
     const tooltip = document.getElementById('map-tooltip');
