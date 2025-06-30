@@ -17,9 +17,9 @@ import {
 } from "./sonificationUtils.js";
 
 // Special task blocks that should be highlighted
-const VISUAL_TASK_BLOCKS = ['ND40', 'GB41', 'TB19', 'TD17', 'KK23'];
-const AUDIO_TASK_BLOCKS = ['MN09', 'YF09', 'RA01', 'TC14', 'TA16'];
-const AUDIO_VISUAL_TASK_BLOCKS = ['TA46', 'RJ58', 'RS15', 'MA12', 'HB02'];
+const VISUAL_TASK_BLOCKS = ['TB19', 'TD17', 'KK23'];
+const AUDIO_TASK_BLOCKS = ['RA01', 'TC14', 'TA16'];
+const AUDIO_VISUAL_TASK_BLOCKS = ['JB10', 'HB14'];
 
 class MapSoundConnector {
   constructor(map, sonificationEngine) {
