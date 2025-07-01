@@ -2509,6 +2509,39 @@ function toggleAudioDetailView(metricType, showDetails) {
 </script>
 
 <body>
+  <!-- Loading Overlay -->
+<div id="loading-overlay" style="
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 999999;
+  font-family: 'Roboto', sans-serif;
+">
+  <div style="text-align: center;">
+    <div style="width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
+    <h2>Loading Urban Form Sonification</h2>
+    <p id="loading-status">Initializing map...</p>
+    <div id="loading-errors" style="color: red; margin-top: 10px; max-width: 600px; display: none;">
+      <strong>Issues detected:</strong>
+      <ul id="error-list"></ul>
+      <p><strong>Solution:</strong> This application requires a web server. Please see the README.md for setup instructions.</p>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
 <!-- ABOUT -->
 <div id="about-overlay" class="hidden">
   <div id="about-content">
@@ -2697,7 +2730,7 @@ function toggleAudioDetailView(metricType, showDetails) {
 <div id="audio-building-height-details-panel" class="visual-guide-panel">
   <h2 class="visual-guide-title">AUDIO GUIDE</h2>
   
-  <h3 class="section-title">Building Height (m) - Dynamics & Register</h3>
+  <h3 class="section-title">Building Height (m) = Dynamics & Register</h3>
   <button class="less-button" onclick="toggleAudioDetailView('building-height', false)">
     ← Less
   </button>
@@ -2756,7 +2789,7 @@ function toggleAudioDetailView(metricType, showDetails) {
 <div id="audio-land-use-details-panel" class="visual-guide-panel" style="display:none;">
   <h2 class="visual-guide-title">AUDIO GUIDE</h2>
   
-  <h3 class="section-title">Land Use</h3>
+  <h3 class="section-title">Land Use = Instruments</h3>
   <button class="less-button" onclick="toggleAudioDetailView('land-use', false)">
     ← Less
   </button>
@@ -2850,7 +2883,7 @@ function toggleAudioDetailView(metricType, showDetails) {
 <div id="audio-street-network-details-panel" class="visual-guide-panel" style="display:none;">
     <h2 class="visual-guide-title">AUDIO GUIDE</h2>
     <div class="street-network-details">
-      <h3 class="section-title">Street Pattern</h3>
+      <h3 class="section-title">Street Pattern = Melody</h3>
       <div class="back-button">
         <button class="less-button" onclick="toggleAudioDetailView('street-network', false)">
           <span class="arrow">&larr;</span> Less
@@ -3508,10 +3541,42 @@ clustersRadio.addEventListener('change', function() {
 
     // Mapbox access token
     mapboxgl.accessToken = 'pk.eyJ1IjoiaGNjcngiLCJhIjoiY204b3BpcndxMDJjZzJsc2QwZ3J5MG9teiJ9.05BEoK7aZljyVD_OCtyEFQ';
+function updateLoadingStatus(message) {
+  const statusEl = document.getElementById('loading-status');
+  if (statusEl) statusEl.textContent = message;
+  console.log('Loading:', message);
+}
+
+function showError(error) {
+  const errorsDiv = document.getElementById('loading-errors');
+  const errorList = document.getElementById('error-list');
+  if (errorsDiv && errorList) {
+    const li = document.createElement('li');
+    li.textContent = error;
+    errorList.appendChild(li);
+    errorsDiv.style.display = 'block';
+  }
+  console.error('Loading Error:', error);
+}
+
+function hideLoadingOverlay() {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 500);
+  }
+}
+
+
+if (window.location.protocol === 'file:') {
+  showError('Running from file:// protocol. Requires web server.');
+}
     console.log("Initializing map...");
     const amsterdamBounds = new mapboxgl.LngLatBounds(
-      [4.728927, 52.278174], // Southwest coordinates 
-      [5.079784, 52.431064]  // Northeast coordinates 
+      [4.728927, 52.278174], 
+      [5.079784, 52.431064]  
     );
     const map = new mapboxgl.Map({
   container: 'map',
@@ -3544,7 +3609,6 @@ clustersRadio.addEventListener('change', function() {
   const activeLayer = document.querySelector('input[name="layer"]:checked')?.value;
   
   if (activeLayer === 'city-blocks') {
-    // CUSTOM LEGEND FOR block explorer (with Audio/Visual icons)
     const cityBlocksRow = document.createElement('div');
     cityBlocksRow.style.display = 'flex';
     cityBlocksRow.style.alignItems = 'center';
@@ -3829,19 +3893,18 @@ async function loadGeoJSON(path) {
     let url = path;
     let isZipped = false;
 
-    // Check if this file should be loaded as a ZIP compressed file
-    if (path.includes("landuse.geojson") && !path.includes("landuse_block.geojson")) {
+
+    if (path === 'landuse.geojson') {
       url = "landuse.zip";
       isZipped = true;
-    } else if (path.includes("landuse_block.geojson")) {
+    } else if (path === 'landuse_block.geojson') {
       url = "landuse_block.zip";
       isZipped = true;
-    } else if (path.includes("height_age.geojson")) {
+    } else if (path === 'height_age.geojson') {
       url = "height_age.zip";
       isZipped = true;
     }
-    // For other files like clusters.geojson, street.geojson, boundary.geojson
-    // they will use the original path since they're not compressed
+
 
     console.log(`Attempting to load ${isZipped ? 'ZIP compressed ' : ''}file from: ${url}`);
     
@@ -3855,22 +3918,20 @@ async function loadGeoJSON(path) {
     let data;
     
     if (isZipped) {
-      // Handle ZIP compressed files using JSZip
       console.log("Processing ZIP compressed file...");
       const arrayBuffer = await response.arrayBuffer();
       
-      // Check if JSZip is available
+
       if (typeof JSZip === 'undefined') {
         throw new Error('JSZip library not loaded. Please check the script tag.');
       }
       
       try {
-        // Use JSZip to extract the file
+
         console.log("Loading ZIP archive...");
         const zip = new JSZip();
         const zipContents = await zip.loadAsync(arrayBuffer);
-        
-        // Find the .geojson file in the archive
+
         let geoJsonFileName = null;
         console.log("Files found in ZIP archive:");
         
@@ -3898,7 +3959,6 @@ async function loadGeoJSON(path) {
       }
       
     } else {
-      // Handle regular JSON files (clusters, street, boundary)
       console.log("Processing regular JSON file...");
       data = await response.json();
     }
@@ -3912,7 +3972,6 @@ async function loadGeoJSON(path) {
     console.error(`Error loading GeoJSON from ${path}:`, error);
     console.log(`Creating fallback data for ${path}...`);
     
-    // Return empty but valid GeoJSON structure to prevent crashes
     return {
       type: "FeatureCollection",
       features: []
@@ -3966,8 +4025,9 @@ function createFallbackGeoJSON(path) {
       }
     }
     
-    map.on('load', async () => {
+map.on('load', async () => {
   console.log("Map loaded, adding layers...");
+  updateLoadingStatus('Loading data layers...');
   // Load GeoJSON data.
 const [clustersData, heightAgeData, landuseData, landuseBlockData, streetData, boundaryData] = await Promise.all([
     loadGeoJSON('clusters.geojson'),
@@ -4334,7 +4394,7 @@ if (boundaryData) {
       },
       layout: { visibility: 'visible' }
     });
-  // Fit the map to the Amsterdam Boundary extent.
+// Fit the map to the Amsterdam Boundary extent.
 const preciseBounds = new mapboxgl.LngLatBounds();
 boundaryData.features.forEach(feature => {
   if (feature.geometry.type === 'Polygon') {
@@ -4349,6 +4409,13 @@ boundaryData.features.forEach(feature => {
   } else {
     console.error("Failed to load boundary data");
   }
+
+// ADD THESE LINES HERE ↓
+updateLoadingStatus('Layers loaded successfully!');
+setTimeout(() => {
+  hideLoadingOverlay();
+}, 1000);
+// END OF ADDED LINES ↑
 
 const legendElement = document.getElementById('legend');
 legendElement.classList.add('collapsed');
